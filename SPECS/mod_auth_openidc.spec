@@ -15,12 +15,14 @@
 
 Name:		mod_auth_openidc
 Version:	2.4.9.4
-Release:	1%{?dist}
+Release:	4%{?dist}
 Summary:	OpenID Connect auth module for Apache HTTP Server
 
 License:	ASL 2.0
 URL:		https://github.com/zmartzone/mod_auth_openidc
 Source0:	https://github.com/zmartzone/mod_auth_openidc/archive/v%{version}.tar.gz
+Patch0:		0001-CVE-2022-23527.patch
+Patch1:		0002-CVE-2023-28625.patch
 
 BuildRequires:  gcc
 BuildRequires:	httpd-devel
@@ -40,7 +42,7 @@ This module enables an Apache 2.x web server to operate as
 an OpenID Connect Relying Party and/or OAuth 2.0 Resource Server.
 
 %prep
-%setup -q
+%autosetup -p1
 
 %build
 # workaround rpm-buildroot-usage
@@ -88,16 +90,31 @@ install -m 700 -d $RPM_BUILD_ROOT%{httpd_pkg_cache_dir}/cache
 %doc README.md
 %{_httpd_moddir}/mod_auth_openidc.so
 %config(noreplace) %{_httpd_modconfdir}/10-auth_openidc.conf
-%config(noreplace) %{_httpd_confdir}/auth_openidc.conf
+%config(noreplace) %attr(0640, root, apache) %{_httpd_confdir}/auth_openidc.conf
 %dir %attr(0700, apache, apache) %{httpd_pkg_cache_dir}
 %dir %attr(0700, apache, apache) %{httpd_pkg_cache_dir}/metadata
 %dir %attr(0700, apache, apache) %{httpd_pkg_cache_dir}/cache
 
 %changelog
+* Mon Apr 24 2023 Tomas Halman <thalman@redhat.com> - 2.4.9.4-4
+  Resolves: rhbz#2189268 - auth_openidc.conf mode 0640 by default
+
+* Tue Apr 11 2023  Tomas Halman <thalman@redhat.com> - 2.4.9.4-3
+- Resolves: rhbz#2184145 - CVE-2023-28625 NULL pointer dereference
+  when OIDCStripCookies is set and a crafted Cookie header is supplied
+
+* Tue Feb 21 2023 Tomas Halman <thalman@redhat.com> - 2.4.9.4-2
+- Resolves: rhbz#2153656 - CVE-2022-23527 - Open Redirect in
+  oidc_validate_redirect_url() using tab character
+
 * Tue Nov 30 2021 Tomas Halman <thalman@redhat.com> - 2.4.9.4-1
 - Resolves: rhbz#2001852 - CVE-2021-39191 mod_auth_openidc: open redirect
                            by supplying a crafted URL in the target_link_uri
                            parameter
+
+* Mon Aug 09 2021 Mohan Boddu <mboddu@redhat.com> - 2.4.8.2-3
+- Rebuilt for IMA sigs, glibc 2.34, aarch64 flags
+  Related: rhbz#1991688
 
 * Fri Jul 30 2021 Jakub Hrozek <jhrozek@redhat.com> - 2.4.9.1-1
 - Resolves: rhbz#1987223 - CVE-2021-32792 mod_auth_openidc: XSS when using
@@ -107,10 +124,6 @@ install -m 700 -d $RPM_BUILD_ROOT%{httpd_pkg_cache_dir}/cache
                            encryption [rhel-9.0]
 - Resolves: rhbz#1987204 - CVE-2021-32786 mod_auth_openidc: open redirect in
                            oidc_validate_redirect_url() [rhel-9.0]
-
-* Mon Aug 09 2021 Mohan Boddu <mboddu@redhat.com> - 2.4.8.2-3
-- Rebuilt for IMA sigs, glibc 2.34, aarch64 flags
-  Related: rhbz#1991688
 
 * Wed Jun 16 2021 Mohan Boddu <mboddu@redhat.com> - 2.4.8.2-2
 - Rebuilt for RHEL 9 BETA for openssl 3.0
