@@ -15,12 +15,14 @@
 
 Name:		mod_auth_openidc
 Version:	2.4.9.4
-Release:	1%{?dist}
+Release:	5%{?dist}
 Summary:	OpenID Connect auth module for Apache HTTP Server
 
 License:	ASL 2.0
 URL:		https://github.com/zmartzone/mod_auth_openidc
 Source0:	https://github.com/zmartzone/mod_auth_openidc/archive/v%{version}.tar.gz
+Patch0:		0001-CVE-2022-23527.patch
+Patch1:		0002-CVE-2023-28625.patch
 
 BuildRequires:  gcc
 BuildRequires:	httpd-devel
@@ -34,13 +36,14 @@ BuildRequires:	cjose-devel
 BuildRequires:	jq-devel
 %{?_with_hiredis:BuildRequires: hiredis-devel}
 Requires:	httpd-mmn = %{_httpd_mmn}
+Requires:	cjose >= 0.6.1
 
 %description
 This module enables an Apache 2.x web server to operate as
 an OpenID Connect Relying Party and/or OAuth 2.0 Resource Server.
 
 %prep
-%setup -q
+%autosetup -p1
 
 %build
 # workaround rpm-buildroot-usage
@@ -89,12 +92,26 @@ install -m 700 -d $RPM_BUILD_ROOT%{httpd_pkg_cache_dir}/cache
 %doc README.md
 %{_httpd_moddir}/mod_auth_openidc.so
 %config(noreplace) %{_httpd_modconfdir}/10-auth_openidc.conf
-%config(noreplace) %{_httpd_confdir}/auth_openidc.conf
+%config(noreplace) %attr(0640, root, apache) %{_httpd_confdir}/auth_openidc.conf
 %dir %attr(0700, apache, apache) %{httpd_pkg_cache_dir}
 %dir %attr(0700, apache, apache) %{httpd_pkg_cache_dir}/metadata
 %dir %attr(0700, apache, apache) %{httpd_pkg_cache_dir}/cache
 
 %changelog
+* Tue Apr 25 2023 Tomas Halman <thalman@redhat.com> - 2.4.9.4-5
+  Related: rhbz#2141850 - fix cjose version dependency
+
+* Mon Apr 24 2023 Tomas Halman <thalman@redhat.com> - 2.4.9.4-4
+  Resolves: rhbz#2141850 - auth_openidc.conf mode 0640 by default
+
+* Tue Apr 11 2023  Tomas Halman <thalman@redhat.com> - 2.4.9.4-3
+- Resolves: rhbz#2184144 - CVE-2023-28625 NULL pointer dereference
+      when OIDCStripCookies is set and a crafted Cookie header is supplied
+
+* Thu Feb 21 2023 Tomas Halman <thalman@redhat.com> - 2.4.9.4-2
+- Resolves: rhbz#2153659 - CVE-2022-23527 - Open Redirect in
+      oidc_validate_redirect_url() using tab character
+
 * Fri Apr 8 2022 Tomas Halman <thalman@redhat.com> - 2.4.9.4-1
 - Resolves: rhbz#2025368 - Rebase to new version
 
