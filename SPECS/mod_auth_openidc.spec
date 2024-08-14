@@ -15,14 +15,16 @@
 
 Name:		mod_auth_openidc
 Version:	2.4.9.4
-Release:	5%{?dist}
+Release:	6%{?dist}
 Summary:	OpenID Connect auth module for Apache HTTP Server
 
 License:	ASL 2.0
 URL:		https://github.com/zmartzone/mod_auth_openidc
 Source0:	https://github.com/zmartzone/mod_auth_openidc/archive/v%{version}.tar.gz
-Patch0:		0001-CVE-2022-23527.patch
-Patch1:		0002-CVE-2023-28625.patch
+Patch1:		0001-CVE-2022-23527.patch
+Patch2:		0002-CVE-2023-28625.patch
+Patch3:		0003-CVE-2024-24814.patch
+Patch4:		0004-race-condition.patch
 
 BuildRequires:  gcc
 BuildRequires:	httpd-devel
@@ -98,6 +100,12 @@ install -m 700 -d $RPM_BUILD_ROOT%{httpd_pkg_cache_dir}/cache
 %dir %attr(0700, apache, apache) %{httpd_pkg_cache_dir}/cache
 
 %changelog
+* Fri Apr 12 2024 Tomas Halman <thalman@redhat.com> - 2.4.9.4-6
+- Resolves: RHEL-36492 Race condition in mod_auth_openidc filecache
+- Resolves: RHEL-25421 mod_auth_openidc: DoS when using
+    `OIDCSessionType client-cookie` and manipulating cookies
+    (CVE-2024-24814)
+
 * Tue Apr 25 2023 Tomas Halman <thalman@redhat.com> - 2.4.9.4-5
   Related: rhbz#2141850 - fix cjose version dependency
 
@@ -108,7 +116,7 @@ install -m 700 -d $RPM_BUILD_ROOT%{httpd_pkg_cache_dir}/cache
 - Resolves: rhbz#2184144 - CVE-2023-28625 NULL pointer dereference
       when OIDCStripCookies is set and a crafted Cookie header is supplied
 
-* Thu Feb 21 2023 Tomas Halman <thalman@redhat.com> - 2.4.9.4-2
+* Tue Feb 21 2023 Tomas Halman <thalman@redhat.com> - 2.4.9.4-2
 - Resolves: rhbz#2153659 - CVE-2022-23527 - Open Redirect in
       oidc_validate_redirect_url() using tab character
 
