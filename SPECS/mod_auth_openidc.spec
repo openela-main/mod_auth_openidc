@@ -14,15 +14,18 @@
 %global httpd_pkg_cache_dir /var/cache/httpd/mod_auth_openidc
 
 Name:		mod_auth_openidc
-Version:	2.4.9.4
-Release:	4%{?dist}
+Version:	2.4.10
+Release:	1%{?dist}
 Summary:	OpenID Connect auth module for Apache HTTP Server
 
 License:	ASL 2.0
-URL:		https://github.com/zmartzone/mod_auth_openidc
-Source0:	https://github.com/zmartzone/mod_auth_openidc/archive/v%{version}.tar.gz
-Patch0:		0001-CVE-2022-23527.patch
-Patch1:		0002-CVE-2023-28625.patch
+URL:		https://github.com/OpenIDC/mod_auth_openidc
+Source0:	https://github.com/OpenIDC/mod_auth_openidc/releases/download/v%{version}/mod_auth_openidc-%{version}.tar.gz
+Patch0:		0000-destdir.patch
+Patch1:		0001-CVE-2022-23527.patch
+Patch2:		0002-CVE-2023-28625.patch
+Patch3:		0003-CVE-2024-24814.patch
+Patch4:		0004-race-condition.patch
 
 BuildRequires:  gcc
 BuildRequires:	httpd-devel
@@ -64,7 +67,7 @@ make test
 
 %install
 mkdir -p $RPM_BUILD_ROOT%{_httpd_moddir}
-make install MODULES_DIR=$RPM_BUILD_ROOT%{_httpd_moddir}
+make DESTDIR=$RPM_BUILD_ROOT MODULES_DIR=%{_httpd_moddir} install
 
 install -m 755 -d $RPM_BUILD_ROOT%{_httpd_modconfdir}
 echo 'LoadModule auth_openidc_module modules/mod_auth_openidc.so' > \
@@ -96,6 +99,13 @@ install -m 700 -d $RPM_BUILD_ROOT%{httpd_pkg_cache_dir}/cache
 %dir %attr(0700, apache, apache) %{httpd_pkg_cache_dir}/cache
 
 %changelog
+* Fri Apr 12 2024 Tomas Halman <thalman@redhat.com> - 2.4.10-1
+  Rebase to 2.4.10 version improves `state cookies piling up` problem
+  Resolves: RHEL-32450 Race condition in mod_auth_openidc filecache
+  Resolves: RHEL-25422 mod_auth_openidc: DoS when using
+            `OIDCSessionType client-cookie` and manipulating cookies
+            (CVE-2024-24814)
+
 * Mon Apr 24 2023 Tomas Halman <thalman@redhat.com> - 2.4.9.4-4
   Resolves: rhbz#2189268 - auth_openidc.conf mode 0640 by default
 
