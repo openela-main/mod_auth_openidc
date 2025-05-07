@@ -1,0 +1,1584 @@
+diff -U0 mod_auth_openidc-2.4.9.4/ChangeLog.orig mod_auth_openidc-2.4.9.4/ChangeLog
+diff -up mod_auth_openidc-2.4.9.4/src/authz.c.orig mod_auth_openidc-2.4.9.4/src/authz.c
+--- mod_auth_openidc-2.4.9.4/src/authz.c.orig	2021-09-03 10:41:21.000000000 +0200
++++ mod_auth_openidc-2.4.9.4/src/authz.c	2025-04-25 17:25:01.700795344 +0200
+@@ -65,7 +65,7 @@ static apr_byte_t oidc_authz_match_value
+ 	/* see if it is a string and it (case-insensitively) matches the Require'd value */
+ 	if (json_is_string(val)) {
+ 
+-		if (apr_strnatcmp(json_string_value(val), spec_c) == 0)
++		if (_oidc_strcmp(json_string_value(val), spec_c) == 0)
+ 			return TRUE;
+ 
+ 		/* see if it is a integer and it equals the Require'd value */
+@@ -77,7 +77,7 @@ static apr_byte_t oidc_authz_match_value
+ 		/* see if it is a boolean and it (case-insensitively) matches the Require'd value */
+ 	} else if (json_is_boolean(val)) {
+ 
+-		if (apr_strnatcmp(json_is_true(val) ? "true" : "false", spec_c) == 0)
++		if (_oidc_strcmp((json_is_true(val) ? "true" : "false"), spec_c) == 0)
+ 			return TRUE;
+ 
+ 		/* if it is an array, we'll walk it */
+@@ -94,13 +94,14 @@ static apr_byte_t oidc_authz_match_value
+ 				 * whitespace). At this point, spec_c points to the
+ 				 * NULL-terminated value pattern.
+ 				 */
+-				if (apr_strnatcmp(json_string_value(elem), spec_c) == 0)
++				if (_oidc_strcmp(json_string_value(elem), spec_c) == 0)
+ 					return TRUE;
+ 
+ 			} else if (json_is_boolean(elem)) {
+ 
+-				if (apr_strnatcmp(
+-						json_is_true(elem) ? "true" : "false", spec_c) == 0)
++				if (_oidc_strcmp((json_is_true(elem) ? "true" : "false"),
++						spec_c)
++						== 0)
+ 					return TRUE;
+ 
+ 			} else if (json_is_integer(elem)) {
+@@ -112,14 +113,14 @@ static apr_byte_t oidc_authz_match_value
+ 
+ 				oidc_warn(r,
+ 						"unhandled in-array JSON object type [%d] for key \"%s\"",
+-						elem->type, (const char * ) key);
++						elem->type, (const char* ) key);
+ 			}
+ 
+ 		}
+ 
+ 	} else {
+ 		oidc_warn(r, "unhandled JSON object type [%d] for key \"%s\"",
+-				val->type, (const char * ) key);
++				val->type, (const char* ) key);
+ 	}
+ 
+ 	return FALSE;
+@@ -272,7 +273,7 @@ static apr_byte_t jq_parse(request_rec *
+ 			jv dumped = jv_dump_string(result, 0);
+ 			const char *str = jv_string_value(dumped);
+ 			oidc_debug(r, "dumped: %s", str);
+-			rv = (apr_strnatcmp(str, "true") == 0);
++			rv = (_oidc_strcmp(str, "true") == 0);
+ 		}
+ 
+ 		jv_free(result);
+diff -up mod_auth_openidc-2.4.9.4/src/cache/file.c.orig mod_auth_openidc-2.4.9.4/src/cache/file.c
+--- mod_auth_openidc-2.4.9.4/src/cache/file.c.orig	2025-04-25 17:24:28.167525246 +0200
++++ mod_auth_openidc-2.4.9.4/src/cache/file.c	2025-04-25 17:25:01.700880719 +0200
+@@ -321,7 +321,7 @@ static apr_status_t oidc_cache_file_clea
+ 			/* skip non-cache entries, cq. the ".", ".." and the metadata file */
+ 			if ((fi.name[0] == OIDC_CHAR_DOT)
+ 					|| (strstr(fi.name, OIDC_CACHE_FILE_PREFIX) != fi.name)
+-					|| ((apr_strnatcmp(fi.name,
++					|| ((_oidc_strcmp(fi.name,
+ 							oidc_cache_file_name(r, "cache-file",
+ 									OIDC_CACHE_FILE_LAST_CLEANED)) == 0)))
+ 				continue;
+diff -up mod_auth_openidc-2.4.9.4/src/cache/shm.c.orig mod_auth_openidc-2.4.9.4/src/cache/shm.c
+--- mod_auth_openidc-2.4.9.4/src/cache/shm.c.orig	2021-09-03 10:41:21.000000000 +0200
++++ mod_auth_openidc-2.4.9.4/src/cache/shm.c	2025-04-25 17:25:01.700939069 +0200
+@@ -190,7 +190,7 @@ static apr_byte_t oidc_cache_shm_get(req
+ 			i++, OIDC_CACHE_SHM_ADD_OFFSET(t, cfg->cache_shm_entry_size_max)) {
+ 		const char *tablekey = t->section_key;
+ 
+-		if ((tablekey != NULL) && (apr_strnatcmp(tablekey, section_key) == 0)) {
++		if ((tablekey != NULL) && (_oidc_strcmp(tablekey, section_key) == 0)) {
+ 
+ 			/* found a match, check if it has expired */
+ 			if (t->expires > apr_time_now()) {
+@@ -276,7 +276,7 @@ static apr_byte_t oidc_cache_shm_set(req
+ 		}
+ 
+ 		/* see if a value already exists for this key */
+-		if (apr_strnatcmp(t->section_key, section_key) == 0) {
++		if (_oidc_strcmp(t->section_key, section_key) == 0) {
+ 			match = t;
+ 			break;
+ 		}
+diff -up mod_auth_openidc-2.4.9.4/src/config.c.orig mod_auth_openidc-2.4.9.4/src/config.c
+--- mod_auth_openidc-2.4.9.4/src/config.c.orig	2021-09-03 10:41:21.000000000 +0200
++++ mod_auth_openidc-2.4.9.4/src/config.c	2025-04-25 17:40:38.142249364 +0200
+@@ -441,7 +441,7 @@ static const char* oidc_set_passphrase_s
+ 	char **argv = NULL;
+ 	char *result = NULL;
+ 	/* Based on code from mod_session_crypto. */
+-	if (arglen > 5 && strncmp(arg, "exec:", 5) == 0) {
++	if (arglen > 5 && _oidc_strncmp(arg, "exec:", 5) == 0) {
+ 		if (apr_tokenize_to_argv(arg + 5, &argv, cmd->temp_pool) != APR_SUCCESS) {
+ 			return apr_pstrcat(cmd->pool,
+ 					"Unable to parse exec arguments from ", arg + 5, NULL);
+@@ -587,11 +587,11 @@ const char* oidc_parse_pkce_type(apr_poo
+ 	if (rv != NULL)
+ 		return rv;
+ 
+-	if (apr_strnatcmp(arg, OIDC_PKCE_METHOD_PLAIN) == 0) {
++	if (_oidc_strcmp(arg, OIDC_PKCE_METHOD_PLAIN) == 0) {
+ 		*type = &oidc_pkce_plain;
+-	} else if (apr_strnatcmp(arg, OIDC_PKCE_METHOD_S256) == 0) {
++	} else if (_oidc_strcmp(arg, OIDC_PKCE_METHOD_S256) == 0) {
+ 		*type = &oidc_pkce_s256;
+-	} else if (apr_strnatcmp(arg, OIDC_PKCE_METHOD_REFERRED_TB) == 0) {
++	} else if (_oidc_strcmp(arg, OIDC_PKCE_METHOD_REFERRED_TB) == 0) {
+ 		*type = &oidc_pkce_referred_tb;
+ 	}
+ 
+@@ -960,7 +960,7 @@ static const char* oidc_set_pass_claims_
+ 			&dir_cfg->pass_info_in_headers, &dir_cfg->pass_info_in_env_vars);
+ 	if (rv == NULL) {
+ 		if (arg2 != NULL) {
+-			if (apr_strnatcmp(arg2, "base64url") == 0) {
++			if (_oidc_strcmp(arg2, "base64url") == 0) {
+ 				dir_cfg->pass_info_base64url = 1;
+ 			} else {
+ 				rv = apr_pstrcat(cmd->temp_pool, "unknown encoding option \"",
+@@ -1225,7 +1225,7 @@ char* oidc_cfg_dir_state_cookie_prefix(r
+ 			&auth_openidc_module);
+ 	if ((dir_cfg->state_cookie_prefix == NULL)
+ 			|| ((dir_cfg->state_cookie_prefix != NULL)
+-					&& (apr_strnatcmp(dir_cfg->state_cookie_prefix,
++					&& (_oidc_strcmp(dir_cfg->state_cookie_prefix,
+ 							OIDC_CONFIG_STRING_UNSET) == 0)))
+ 		return OIDC_DEFAULT_STATE_COOKIE_PREFIX;
+ 	return dir_cfg->state_cookie_prefix;
+@@ -1632,7 +1632,7 @@ void* oidc_merge_server_config(apr_pool_
+ 					add->oauth.introspection_endpoint_url :
+ 					base->oauth.introspection_endpoint_url;
+ 	c->oauth.introspection_endpoint_method =
+-			apr_strnatcmp(add->oauth.introspection_endpoint_method,
++			_oidc_strcmp(add->oauth.introspection_endpoint_method,
+ 					OIDC_DEFAULT_OAUTH_ENDPOINT_METHOD) != 0 ?
+ 							add->oauth.introspection_endpoint_method :
+ 							base->oauth.introspection_endpoint_method;
+@@ -1649,18 +1649,18 @@ void* oidc_merge_server_config(apr_pool_
+ 					add->oauth.introspection_client_auth_bearer_token :
+ 					base->oauth.introspection_client_auth_bearer_token;
+ 	c->oauth.introspection_token_param_name =
+-			apr_strnatcmp(add->oauth.introspection_token_param_name,
++			_oidc_strcmp(add->oauth.introspection_token_param_name,
+ 					OIDC_DEFAULT_OAUTH_TOKEN_PARAM_NAME) != 0 ?
+ 							add->oauth.introspection_token_param_name :
+ 							base->oauth.introspection_token_param_name;
+ 
+ 	c->oauth.introspection_token_expiry_claim_name =
+-			apr_strnatcmp(add->oauth.introspection_token_expiry_claim_name,
++			_oidc_strcmp(add->oauth.introspection_token_expiry_claim_name,
+ 					OIDC_DEFAULT_OAUTH_EXPIRY_CLAIM_NAME) != 0 ?
+ 							add->oauth.introspection_token_expiry_claim_name :
+ 							base->oauth.introspection_token_expiry_claim_name;
+ 	c->oauth.introspection_token_expiry_claim_format =
+-			apr_strnatcmp(add->oauth.introspection_token_expiry_claim_format,
++			_oidc_strcmp(add->oauth.introspection_token_expiry_claim_format,
+ 					OIDC_DEFAULT_OAUTH_EXPIRY_CLAIM_FORMAT) != 0 ?
+ 							add->oauth.introspection_token_expiry_claim_format :
+ 							base->oauth.introspection_token_expiry_claim_format;
+@@ -1671,7 +1671,7 @@ void* oidc_merge_server_config(apr_pool_
+ 					base->oauth.introspection_token_expiry_claim_required;
+ 
+ 	c->oauth.remote_user_claim.claim_name =
+-			apr_strnatcmp(add->oauth.remote_user_claim.claim_name,
++			_oidc_strcmp(add->oauth.remote_user_claim.claim_name,
+ 					OIDC_DEFAULT_OAUTH_CLAIM_REMOTE_USER) != 0 ?
+ 							add->oauth.remote_user_claim.claim_name :
+ 							base->oauth.remote_user_claim.claim_name;
+@@ -1801,12 +1801,12 @@ void* oidc_merge_server_config(apr_pool_
+ 			add->cookie_domain != NULL ?
+ 					add->cookie_domain : base->cookie_domain;
+ 	c->claim_delimiter =
+-			apr_strnatcmp(add->claim_delimiter, OIDC_DEFAULT_CLAIM_DELIMITER)
++			_oidc_strcmp(add->claim_delimiter, OIDC_DEFAULT_CLAIM_DELIMITER)
+ 			!= 0 ? add->claim_delimiter : base->claim_delimiter;
+ 	c->claim_prefix =
+ 			add->claim_prefix != NULL ? add->claim_prefix : base->claim_prefix;
+ 	c->remote_user_claim.claim_name =
+-			apr_strnatcmp(add->remote_user_claim.claim_name,
++			_oidc_strcmp(add->remote_user_claim.claim_name,
+ 					OIDC_DEFAULT_CLAIM_REMOTE_USER) != 0 ?
+ 							add->remote_user_claim.claim_name :
+ 							base->remote_user_claim.claim_name;
+@@ -1947,7 +1947,7 @@ void* oidc_create_dir_config(apr_pool_t
+ char* oidc_cfg_dir_discover_url(request_rec *r) {
+ 	oidc_dir_cfg *dir_cfg = ap_get_module_config(r->per_dir_config,
+ 			&auth_openidc_module);
+-	if ((dir_cfg->discover_url != NULL) && (apr_strnatcmp(dir_cfg->discover_url,
++	if ((dir_cfg->discover_url != NULL) && (_oidc_strcmp(dir_cfg->discover_url,
+ 			OIDC_CONFIG_STRING_UNSET) == 0))
+ 		return NULL;
+ 	return dir_cfg->discover_url;
+@@ -1958,7 +1958,7 @@ char* oidc_cfg_dir_cookie(request_rec *r
+ 			&auth_openidc_module);
+ 	if ((dir_cfg->cookie == NULL)
+ 			|| ((dir_cfg->cookie != NULL)
+-					&& (apr_strnatcmp(dir_cfg->cookie, OIDC_CONFIG_STRING_UNSET)
++					&& (_oidc_strcmp(dir_cfg->cookie, OIDC_CONFIG_STRING_UNSET)
+ 							== 0)))
+ 		return OIDC_DEFAULT_COOKIE;
+ 	return dir_cfg->cookie;
+@@ -1969,7 +1969,7 @@ char* oidc_cfg_dir_cookie_path(request_r
+ 			&auth_openidc_module);
+ 	if ((dir_cfg->cookie_path == NULL)
+ 			|| ((dir_cfg->cookie_path != NULL)
+-					&& (apr_strnatcmp(dir_cfg->cookie_path,
++					&& (_oidc_strcmp(dir_cfg->cookie_path,
+ 							OIDC_CONFIG_STRING_UNSET) == 0)))
+ 		return OIDC_DEFAULT_COOKIE_PATH;
+ 	return dir_cfg->cookie_path;
+@@ -1980,7 +1980,7 @@ char* oidc_cfg_dir_authn_header(request_
+ 			&auth_openidc_module);
+ 	if ((dir_cfg->authn_header == NULL)
+ 			|| ((dir_cfg->authn_header != NULL)
+-					&& (apr_strnatcmp(dir_cfg->authn_header,
++					&& (_oidc_strcmp(dir_cfg->authn_header,
+ 							OIDC_CONFIG_STRING_UNSET) == 0)))
+ 		return OIDC_DEFAULT_AUTHN_HEADER;
+ 	return dir_cfg->authn_header;
+@@ -2125,16 +2125,16 @@ void* oidc_merge_dir_config(apr_pool_t *
+ 	oidc_dir_cfg *base = BASE;
+ 	oidc_dir_cfg *add = ADD;
+ 	c->discover_url =
+-			(apr_strnatcmp(add->discover_url, OIDC_CONFIG_STRING_UNSET) != 0) ?
++			(_oidc_strcmp(add->discover_url, OIDC_CONFIG_STRING_UNSET) != 0) ?
+ 					add->discover_url : base->discover_url;
+ 	c->cookie =
+-			(apr_strnatcmp(add->cookie, OIDC_CONFIG_STRING_UNSET) != 0) ?
++			(_oidc_strcmp(add->cookie, OIDC_CONFIG_STRING_UNSET) != 0) ?
+ 					add->cookie : base->cookie;
+ 	c->cookie_path =
+-			(apr_strnatcmp(add->cookie_path, OIDC_CONFIG_STRING_UNSET) != 0) ?
++			(_oidc_strcmp(add->cookie_path, OIDC_CONFIG_STRING_UNSET) != 0) ?
+ 					add->cookie_path : base->cookie_path;
+ 	c->authn_header =
+-			(apr_strnatcmp(add->authn_header, OIDC_CONFIG_STRING_UNSET) != 0) ?
++			(_oidc_strcmp(add->authn_header, OIDC_CONFIG_STRING_UNSET) != 0) ?
+ 					add->authn_header : base->authn_header;
+ 	c->unauth_action =
+ 			add->unauth_action != OIDC_CONFIG_POS_INT_UNSET ?
+@@ -2198,7 +2198,7 @@ void* oidc_merge_dir_config(apr_pool_t *
+ 					base->logout_on_error_refresh;
+ 
+ 	c->state_cookie_prefix =
+-			(apr_strnatcmp(add->state_cookie_prefix, OIDC_CONFIG_STRING_UNSET)
++			(_oidc_strcmp(add->state_cookie_prefix, OIDC_CONFIG_STRING_UNSET)
+ 					!= 0) ?
+ 							add->state_cookie_prefix : base->state_cookie_prefix;
+ 
+@@ -2245,7 +2245,7 @@ static int oidc_check_config_openid_open
+ 		} else {
+ 			apr_uri_parse(s->process->pconf, c->provider.metadata_url, &r_uri);
+ 			if ((r_uri.scheme == NULL)
+-					|| (apr_strnatcmp(r_uri.scheme, "https") != 0)) {
++					|| (_oidc_strcmp(r_uri.scheme, "https") != 0)) {
+ 				oidc_swarn(s,
+ 						"the URL scheme (%s) of the configured " OIDCProviderMetadataURL " SHOULD be \"https\" for security reasons!",
+ 						r_uri.scheme);
+@@ -2263,7 +2263,7 @@ static int oidc_check_config_openid_open
+ 
+ 	apr_uri_parse(s->process->pconf, c->redirect_uri, &r_uri);
+ 	if (!redirect_uri_is_relative) {
+-		if (apr_strnatcmp(r_uri.scheme, "https") != 0) {
++		if (_oidc_strcmp(r_uri.scheme, "https") != 0) {
+ 			oidc_swarn(s,
+ 					"the URL scheme (%s) of the configured " OIDCRedirectURI " SHOULD be \"https\" for security reasons (moreover: some Providers may reject non-HTTPS URLs)",
+ 					r_uri.scheme);
+@@ -2299,7 +2299,7 @@ static int oidc_check_config_oauth(serve
+ 	if (c->oauth.metadata_url != NULL) {
+ 		apr_uri_parse(s->process->pconf, c->oauth.metadata_url, &r_uri);
+ 		if ((r_uri.scheme == NULL)
+-				|| (apr_strnatcmp(r_uri.scheme, "https") != 0)) {
++				|| (_oidc_strcmp(r_uri.scheme, "https") != 0)) {
+ 			oidc_swarn(s,
+ 					"the URL scheme (%s) of the configured " OIDCOAuthServerMetadataURL " SHOULD be \"https\" for security reasons!",
+ 					r_uri.scheme);
+diff -up mod_auth_openidc-2.4.9.4/src/jose.c.orig mod_auth_openidc-2.4.9.4/src/jose.c
+--- mod_auth_openidc-2.4.9.4/src/jose.c.orig	2021-09-03 10:41:21.000000000 +0200
++++ mod_auth_openidc-2.4.9.4/src/jose.c	2025-04-25 19:13:52.476385908 +0200
+@@ -46,7 +46,7 @@
+ #include <apr_base64.h>
+ 
+ #include "jose.h"
+-
++#include "mod_auth_openidc.h"
+ #include <openssl/evp.h>
+ #include <openssl/hmac.h>
+ #include <openssl/opensslv.h>
+@@ -175,7 +175,7 @@ char* oidc_jwt_serialize(apr_pool_t *poo
+ 		oidc_jose_error_t *err) {
+ 	cjose_err cjose_err;
+ 	const char *cser = NULL;
+-	if (strcmp(jwt->header.alg, CJOSE_HDR_ALG_NONE) != 0) {
++	if (_oidc_strcmp(jwt->header.alg, CJOSE_HDR_ALG_NONE) != 0) {
+ 		if (cjose_jws_export(jwt->cjose_jws, &cser, &cjose_err) == FALSE) {
+ 			oidc_jose_error(err, "cjose_jws_export failed: %s",
+ 					oidc_cjose_e2s(pool, cjose_err));
+@@ -205,24 +205,24 @@ char* oidc_jwt_serialize(apr_pool_t *poo
+  * return the key type for an algorithm
+  */
+ static int oidc_alg2kty(const char *alg) {
+-	if (strcmp(alg, CJOSE_HDR_ALG_DIR) == 0)
++	if (_oidc_strcmp(alg, CJOSE_HDR_ALG_DIR) == 0)
+ 		return CJOSE_JWK_KTY_OCT;
+-	if (strncmp(alg, "RS", 2) == 0)
++	if (_oidc_strncmp(alg, "RS", 2) == 0)
+ 		return CJOSE_JWK_KTY_RSA;
+-	if (strncmp(alg, "PS", 2) == 0)
++	if (_oidc_strncmp(alg, "PS", 2) == 0)
+ 		return CJOSE_JWK_KTY_RSA;
+-	if (strncmp(alg, "HS", 2) == 0)
++	if (_oidc_strncmp(alg, "HS", 2) == 0)
+ 		return CJOSE_JWK_KTY_OCT;
+ #if (OIDC_JOSE_EC_SUPPORT)
+-	if (strncmp(alg, "ES", 2) == 0)
++	if (_oidc_strncmp(alg, "ES", 2) == 0)
+ 		return CJOSE_JWK_KTY_EC;
+ #endif
+-	if ((strcmp(alg, CJOSE_HDR_ALG_A128KW) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_A192KW) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_A256KW) == 0))
++	if ((_oidc_strcmp(alg, CJOSE_HDR_ALG_A128KW) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_A192KW) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_A256KW) == 0))
+ 		return CJOSE_JWK_KTY_OCT;
+-	if ((strcmp(alg, CJOSE_HDR_ALG_RSA1_5) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_RSA_OAEP) == 0))
++	if ((_oidc_strcmp(alg, CJOSE_HDR_ALG_RSA1_5) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_RSA_OAEP) == 0))
+ 		return CJOSE_JWK_KTY_RSA;
+ 	return -1;
+ }
+@@ -242,24 +242,24 @@ unsigned int oidc_alg2keysize(const char
+ 	if (alg == NULL)
+ 		return 0;
+ 
+-	if (strcmp(alg, CJOSE_HDR_ALG_A128KW) == 0)
++	if (_oidc_strcmp(alg, CJOSE_HDR_ALG_A128KW) == 0)
+ 		return 16;
+-	if (strcmp(alg, CJOSE_HDR_ALG_A192KW) == 0)
++	if (_oidc_strcmp(alg, CJOSE_HDR_ALG_A192KW) == 0)
+ 		return 24;
+-	if (strcmp(alg, CJOSE_HDR_ALG_A256KW) == 0)
++	if (_oidc_strcmp(alg, CJOSE_HDR_ALG_A256KW) == 0)
+ 		return 32;
+ 
+-	if ((strcmp(alg, CJOSE_HDR_ALG_RS256) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_PS256) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_HS256) == 0))
++	if ((_oidc_strcmp(alg, CJOSE_HDR_ALG_RS256) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_PS256) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_HS256) == 0))
+ 		return 32;
+-	if ((strcmp(alg, CJOSE_HDR_ALG_RS384) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_PS384) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_HS384) == 0))
++	if ((_oidc_strcmp(alg, CJOSE_HDR_ALG_RS384) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_PS384) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_HS384) == 0))
+ 		return 48;
+-	if ((strcmp(alg, CJOSE_HDR_ALG_RS512) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_PS512) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_HS512) == 0))
++	if ((_oidc_strcmp(alg, CJOSE_HDR_ALG_RS512) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_PS512) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_HS512) == 0))
+ 		return 64;
+ 
+ 	return 0;
+@@ -304,7 +304,7 @@ static cjose_jwk_t* oidc_jwk_parse_rsa_x
+ 		goto end;
+ 	}
+ 
+-	if (apr_strnatcmp(kty, OIDC_JOSE_HDR_KTY_RSA) != 0) {
++	if (_oidc_strcmp(kty, OIDC_JOSE_HDR_KTY_RSA) != 0) {
+ 		oidc_jose_error(err,
+ 				"no \"" OIDC_JOSE_HDR_KTY_RSA "\" key type found JWK JSON value");
+ 		goto end;
+@@ -515,7 +515,7 @@ static apr_byte_t oidc_jose_array_has_st
+ 		const char *needle) {
+ 	int i = 0;
+ 	while (i < haystack->nelts) {
+-		if (apr_strnatcmp(((const char**) haystack->elts)[i], needle) == 0)
++		if (_oidc_strcmp(((const char**) haystack->elts)[i], needle) == 0)
+ 			return TRUE;
+ 		i++;
+ 	}
+@@ -1065,22 +1065,22 @@ apr_byte_t oidc_jose_hash_bytes(apr_pool
+  * return the OpenSSL hash algorithm associated with a specified JWT algorithm
+  */
+ static char* oidc_jose_alg_to_openssl_digest(const char *alg) {
+-	if ((strcmp(alg, CJOSE_HDR_ALG_RS256) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_PS256) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_HS256) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_ES256) == 0)) {
++	if ((_oidc_strcmp(alg, CJOSE_HDR_ALG_RS256) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_PS256) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_HS256) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_ES256) == 0)) {
+ 		return LN_sha256;
+ 	}
+-	if ((strcmp(alg, CJOSE_HDR_ALG_RS384) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_PS384) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_HS384) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_ES384) == 0)) {
++	if ((_oidc_strcmp(alg, CJOSE_HDR_ALG_RS384) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_PS384) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_HS384) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_ES384) == 0)) {
+ 		return LN_sha384;
+ 	}
+-	if ((strcmp(alg, CJOSE_HDR_ALG_RS512) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_PS512) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_HS512) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_ES512) == 0)) {
++	if ((_oidc_strcmp(alg, CJOSE_HDR_ALG_RS512) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_PS512) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_HS512) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_ES512) == 0)) {
+ 		return LN_sha512;
+ 	}
+ 	return NULL;
+@@ -1109,22 +1109,22 @@ apr_byte_t oidc_jose_hash_string(apr_poo
+  * return hash length
+  */
+ int oidc_jose_hash_length(const char *alg) {
+-	if ((strcmp(alg, CJOSE_HDR_ALG_RS256) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_PS256) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_HS256) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_ES256) == 0)) {
++	if ((_oidc_strcmp(alg, CJOSE_HDR_ALG_RS256) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_PS256) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_HS256) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_ES256) == 0)) {
+ 		return 32;
+ 	}
+-	if ((strcmp(alg, CJOSE_HDR_ALG_RS384) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_PS384) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_HS384) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_ES384) == 0)) {
++	if ((_oidc_strcmp(alg, CJOSE_HDR_ALG_RS384) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_PS384) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_HS384) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_ES384) == 0)) {
+ 		return 48;
+ 	}
+-	if ((strcmp(alg, CJOSE_HDR_ALG_RS512) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_PS512) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_HS512) == 0)
+-			|| (strcmp(alg, CJOSE_HDR_ALG_ES512) == 0)) {
++	if ((_oidc_strcmp(alg, CJOSE_HDR_ALG_RS512) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_PS512) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_HS512) == 0)
++			|| (_oidc_strcmp(alg, CJOSE_HDR_ALG_ES512) == 0)) {
+ 		return 64;
+ 	}
+ 	return 0;
+diff -up mod_auth_openidc-2.4.9.4/src/metadata.c.orig mod_auth_openidc-2.4.9.4/src/metadata.c
+--- mod_auth_openidc-2.4.9.4/src/metadata.c.orig	2021-09-03 10:41:21.000000000 +0200
++++ mod_auth_openidc-2.4.9.4/src/metadata.c	2025-04-25 17:35:07.277815044 +0200
+@@ -900,7 +900,7 @@ apr_byte_t oidc_metadata_list(request_re
+ 		/* skip other non-provider entries */
+ 		char *ext = strrchr(fi.name, OIDC_CHAR_DOT);
+ 		if ((ext == NULL)
+-				|| (strcmp(++ext, OIDC_METADATA_SUFFIX_PROVIDER) != 0))
++				|| (_oidc_strcmp(++ext, OIDC_METADATA_SUFFIX_PROVIDER) != 0))
+ 			continue;
+ 
+ 		/* get the issuer from the filename */
+@@ -1163,7 +1163,7 @@ static void oidc_metadata_get_jwks(reque
+ 		elem = json_array_get(keys, i);
+ 
+ 		use = json_string_value(json_object_get(elem, OIDC_JWK_USE));
+-		if ((use != NULL) && (strcmp(use, s_use) != 0)) {
++		if ((use != NULL) && (_oidc_strcmp(use, s_use) != 0)) {
+ 			oidc_debug(r,
+ 					"skipping key because of non-matching \"%s\": \"%s\" != \"%s\"",
+ 					OIDC_JWK_USE, use, s_use);
+diff -up mod_auth_openidc-2.4.9.4/src/mod_auth_openidc.c.orig mod_auth_openidc-2.4.9.4/src/mod_auth_openidc.c
+--- mod_auth_openidc-2.4.9.4/src/mod_auth_openidc.c.orig	2025-04-25 17:24:28.177833829 +0200
++++ mod_auth_openidc-2.4.9.4/src/mod_auth_openidc.c	2025-04-25 19:00:43.752989388 +0200
+@@ -140,7 +140,7 @@ void oidc_scrub_headers(request_rec *r)
+ 	const char *prefix = oidc_cfg_claim_prefix(r);
+ 	apr_hash_t *hdrs = apr_hash_make(r->pool);
+ 
+-	if (apr_strnatcmp(prefix, "") == 0) {
++	if (_oidc_strcmp(prefix, "") == 0) {
+ 		if ((cfg->white_listed_claims != NULL)
+ 				&& (apr_hash_count(cfg->white_listed_claims) > 0))
+ 			hdrs = apr_hash_overlay(r->pool, cfg->white_listed_claims, hdrs);
+@@ -196,7 +196,7 @@ void oidc_strip_cookies(request_rec *r)
+ 
+ 			for (i = 0; i < strip->nelts; i++) {
+ 				name = ((const char**) strip->elts)[i];
+-				if ((strncmp(cookie, name, strlen(name)) == 0)
++				if ((_oidc_strncmp(cookie, name, strlen(name)) == 0)
+ 						&& (cookie[strlen(name)] == OIDC_CHAR_EQUAL)) {
+ 					oidc_debug(r, "stripping: %s", name);
+ 					break;
+@@ -411,7 +411,7 @@ static const char* oidc_original_request
+ 			return OIDC_METHOD_GET;
+ 
+ 		const char *content_type = oidc_util_hdr_in_content_type_get(r);
+-		if ((r->method_number == M_POST) && (apr_strnatcmp(content_type,
++		if ((r->method_number == M_POST) && (_oidc_strcmp(content_type,
+ 				OIDC_CONTENT_TYPE_FORM_ENCODED) == 0))
+ 			method = OIDC_METHOD_FORM_POST;
+ 	}
+@@ -437,7 +437,7 @@ apr_byte_t oidc_post_preserve_javascript
+ 
+ 	const char *method = oidc_original_request_method(r, cfg, FALSE);
+ 
+-	if (apr_strnatcmp(method, OIDC_METHOD_FORM_POST) != 0)
++	if (_oidc_strcmp(method, OIDC_METHOD_FORM_POST) != 0)
+ 		return FALSE;
+ 
+ 	/* read the parameters that are POST-ed to us */
+@@ -589,7 +589,7 @@ static int oidc_clean_expired_state_cook
+ 					*cookie = '\0';
+ 					cookie++;
+ 					if ((currentCookieName == NULL)
+-							|| (apr_strnatcmp(cookieName, currentCookieName)
++							|| (_oidc_strcmp(cookieName, currentCookieName)
+ 									!= 0)) {
+ 						oidc_proto_state_t *proto_state =
+ 								oidc_proto_state_from_cookie(r, c, cookie);
+@@ -677,7 +677,7 @@ static apr_byte_t oidc_restore_proto_sta
+ 	/* calculate the hash of the browser fingerprint concatenated with the nonce */
+ 	char *calc = oidc_get_browser_state_hash(r, c, nonce);
+ 	/* compare the calculated hash with the value provided in the authorization response */
+-	if (apr_strnatcmp(calc, state) != 0) {
++	if (_oidc_strcmp(calc, state) != 0) {
+ 		oidc_error(r,
+ 				"calculated state from cookie does not match state parameter passed back in URL: \"%s\" != \"%s\"",
+ 				state, calc);
+@@ -973,7 +973,7 @@ static apr_byte_t oidc_check_cookie_doma
+ 					cfg->cookie_domain : oidc_get_current_url_host(r);
+ 	const char *s_cookie_domain = oidc_session_get_cookie_domain(r, session);
+ 	if ((s_cookie_domain == NULL)
+-			|| (apr_strnatcmp(c_cookie_domain, s_cookie_domain) != 0)) {
++			|| (_oidc_strcmp(c_cookie_domain, s_cookie_domain) != 0)) {
+ 		oidc_warn(r,
+ 				"aborting: detected attempt to play cookie against a different domain/host than issued for! (issued=%s, current=%s)",
+ 				s_cookie_domain, c_cookie_domain);
+@@ -1548,7 +1548,7 @@ static apr_byte_t oidc_authorization_res
+ 
+ 	oidc_debug(r, "enter (state=%s)", state);
+ 
+-	if ((state == NULL) || (apr_strnatcmp(state, "") == 0)) {
++	if ((state == NULL) || (_oidc_strcmp(state, "") == 0)) {
+ 		oidc_error(r, "state parameter is not set");
+ 		return FALSE;
+ 	}
+@@ -1599,7 +1599,7 @@ static int oidc_authorization_response_e
+ 		prompt = apr_pstrdup(r->pool, prompt);
+ 	oidc_proto_state_destroy(proto_state);
+ 	if ((prompt != NULL)
+-			&& (apr_strnatcmp(prompt, OIDC_PROTO_PROMPT_NONE) == 0)) {
++			&& (_oidc_strcmp(prompt, OIDC_PROTO_PROMPT_NONE) == 0)) {
+ 		return oidc_session_redirect_parent_window_to_logout(r, c);
+ 	}
+ 	return oidc_util_html_send_error(r, c->error_template,
+@@ -1897,7 +1897,7 @@ static apr_byte_t oidc_handle_browser_ba
+ 		o_url = oidc_session_get_original_url(r, session);
+ 
+ 		if ((r_state != NULL) && (s_state != NULL)
+-				&& (apr_strnatcmp(r_state, s_state) == 0)) {
++				&& (_oidc_strcmp(r_state, s_state) == 0)) {
+ 
+ 			/* log the browser back event detection */
+ 			oidc_warn(r,
+@@ -1948,7 +1948,7 @@ static int oidc_handle_authorization_res
+ 				"invalid authorization response state and no default SSO URL is set, sending an error...");
+ 		// if content was already returned via html/http send then don't return 500
+ 		// but send 200 to avoid extraneous internal error document text to be sent
+-		return ((r->user) && (strncmp(r->user, "", 1) == 0)) ?
++		return ((r->user) && (_oidc_strncmp(r->user, "", 1) == 0)) ?
+ 				OK :
+ 				HTTP_BAD_REQUEST;
+ 	}
+@@ -1998,12 +1998,12 @@ static int oidc_handle_authorization_res
+ 
+ 		/* session management: if the user in the new response is not equal to the old one, error out */
+ 		if ((prompt != NULL)
+-				&& (apr_strnatcmp(prompt, OIDC_PROTO_PROMPT_NONE) == 0)) {
++				&& (_oidc_strcmp(prompt, OIDC_PROTO_PROMPT_NONE) == 0)) {
+ 			// TOOD: actually need to compare sub? (need to store it in the session separately then
+ 			//const char *sub = NULL;
+ 			//oidc_session_get(r, session, "sub", &sub);
+-			//if (apr_strnatcmp(sub, jwt->payload.sub) != 0) {
+-			if (apr_strnatcmp(session->remote_user, r->user) != 0) {
++			//if (_oidc_strcmp(sub, jwt->payload.sub) != 0) {
++			if (_oidc_strcmp(session->remote_user, r->user) != 0) {
+ 				oidc_warn(r,
+ 						"user set from new id_token is different from current one");
+ 				oidc_jwt_destroy(jwt);
+@@ -2047,7 +2047,7 @@ static int oidc_handle_authorization_res
+ 			original_url, original_method);
+ 
+ 	/* check whether form post data was preserved; if so restore it */
+-	if (apr_strnatcmp(original_method, OIDC_METHOD_FORM_POST) == 0) {
++	if (_oidc_strcmp(original_method, OIDC_METHOD_FORM_POST) == 0) {
+ 		return oidc_request_post_preserved_restore(r, original_url);
+ 	}
+ 
+@@ -2080,7 +2080,7 @@ static int oidc_handle_post_authorizatio
+ 	if ((apr_table_elts(params)->nelts < 1)
+ 			|| ((apr_table_elts(params)->nelts == 1)
+ 					&& apr_table_get(params, OIDC_PROTO_RESPONSE_MODE)
+-					&& (apr_strnatcmp(
++					&& (_oidc_strcmp(
+ 							apr_table_get(params, OIDC_PROTO_RESPONSE_MODE),
+ 							OIDC_PROTO_RESPONSE_MODE_FRAGMENT) == 0))) {
+ 		return oidc_util_html_send_error(r, c->error_template,
+@@ -2358,8 +2358,8 @@ static int oidc_authenticate_user(reques
+ 	memset(&r_uri, 0, sizeof(apr_uri_t));
+ 	apr_uri_parse(r->pool, original_url, &o_uri);
+ 	apr_uri_parse(r->pool, oidc_get_redirect_uri(r, c), &r_uri);
+-	if ((apr_strnatcmp(o_uri.scheme, r_uri.scheme) != 0)
+-			&& (apr_strnatcmp(r_uri.scheme, "https") == 0)) {
++	if ((_oidc_strcmp(o_uri.scheme, r_uri.scheme) != 0)
++			&& (_oidc_strcmp(r_uri.scheme, "https") == 0)) {
+ 		oidc_error(r,
+ 				"the URL scheme (%s) of the configured " OIDCRedirectURI " does not match the URL scheme of the URL being accessed (%s): the \"state\" and \"session\" cookies will not be shared between the two!",
+ 				r_uri.scheme, o_uri.scheme);
+@@ -2368,9 +2368,9 @@ static int oidc_authenticate_user(reques
+ 	}
+ 
+ 	if (c->cookie_domain == NULL) {
+-		if (apr_strnatcmp(o_uri.hostname, r_uri.hostname) != 0) {
++		if (_oidc_strcmp(o_uri.hostname, r_uri.hostname) != 0) {
+ 			char *p = strstr(o_uri.hostname, r_uri.hostname);
+-			if ((p == NULL) || (apr_strnatcmp(r_uri.hostname, p) != 0)) {
++			if ((p == NULL) || (_oidc_strcmp(r_uri.hostname, p) != 0)) {
+ 				oidc_error(r,
+ 						"the URL hostname (%s) of the configured " OIDCRedirectURI " does not match the URL hostname of the URL being accessed (%s): the \"state\" and \"session\" cookies will not be shared between the two!",
+ 						r_uri.hostname, o_uri.hostname);
+@@ -2415,9 +2415,9 @@ static int oidc_target_link_uri_matches_
+ 
+ 	if (cfg->cookie_domain == NULL) {
+ 		/* cookie_domain set: see if the target_link_uri matches the redirect_uri host (because the session cookie will be set host-wide) */
+-		if (apr_strnatcmp(o_uri.hostname, r_uri.hostname) != 0) {
++		if (_oidc_strcmp(o_uri.hostname, r_uri.hostname) != 0) {
+ 			char *p = strstr(o_uri.hostname, r_uri.hostname);
+-			if ((p == NULL) || (apr_strnatcmp(r_uri.hostname, p) != 0)) {
++			if ((p == NULL) || (_oidc_strcmp(r_uri.hostname, p) != 0)) {
+ 				oidc_error(r,
+ 						"the URL hostname (%s) of the configured " OIDCRedirectURI " does not match the URL hostname of the \"target_link_uri\" (%s): aborting to prevent an open redirect.",
+ 						r_uri.hostname, o_uri.hostname);
+@@ -2427,7 +2427,7 @@ static int oidc_target_link_uri_matches_
+ 	} else {
+ 		/* cookie_domain set: see if the target_link_uri is within the cookie_domain */
+ 		char *p = strstr(o_uri.hostname, cfg->cookie_domain);
+-		if ((p == NULL) || (apr_strnatcmp(cfg->cookie_domain, p) != 0)) {
++		if ((p == NULL) || (_oidc_strcmp(cfg->cookie_domain, p) != 0)) {
+ 			oidc_error(r,
+ 					"the domain (%s) configured in " OIDCCookieDomain " does not match the URL hostname (%s) of the \"target_link_uri\" (%s): aborting to prevent an open redirect.",
+ 					cfg->cookie_domain, o_uri.hostname, target_link_uri);
+@@ -2595,7 +2595,7 @@ static int oidc_handle_discovery_respons
+ 
+ 		/* compare CSRF cookie value with query parameter value */
+ 		if ((csrf_query == NULL)
+-				|| apr_strnatcmp(csrf_query, csrf_cookie) != 0) {
++				|| _oidc_strcmp(csrf_query, csrf_cookie) != 0) {
+ 			oidc_warn(r,
+ 					"CSRF protection failed, no Discovery and dynamic client registration will be allowed");
+ 			csrf_cookie = NULL;
+@@ -2639,7 +2639,7 @@ static int oidc_handle_discovery_respons
+ 	if (c->metadata_dir == NULL) {
+ 		if ((oidc_provider_static_config(r, c, &provider) == TRUE)
+ 				&& (issuer != NULL)) {
+-			if (apr_strnatcmp(provider->issuer, issuer) != 0) {
++			if (_oidc_strcmp(provider->issuer, issuer) != 0) {
+ 				return oidc_util_html_send_error(r, c->error_template,
+ 						"Invalid Request",
+ 						apr_psprintf(r->pool,
+@@ -2724,14 +2724,14 @@ static apr_uint32_t oidc_transparent_pix
+ 
+ static apr_byte_t oidc_is_front_channel_logout(const char *logout_param_value) {
+ 	return ((logout_param_value != NULL)
+-			&& ((apr_strnatcmp(logout_param_value,
++			&& ((_oidc_strcmp(logout_param_value,
+ 					OIDC_GET_STYLE_LOGOUT_PARAM_VALUE) == 0)
+-					|| (apr_strnatcmp(logout_param_value,
++					|| (_oidc_strcmp(logout_param_value,
+ 							OIDC_IMG_STYLE_LOGOUT_PARAM_VALUE) == 0)));
+ }
+ 
+ static apr_byte_t oidc_is_back_channel_logout(const char *logout_param_value) {
+-	return ((logout_param_value != NULL) && (apr_strnatcmp(logout_param_value,
++	return ((logout_param_value != NULL) && (_oidc_strcmp(logout_param_value,
+ 			OIDC_BACKCHANNEL_STYLE_LOGOUT_PARAM_VALUE) == 0));
+ }
+ 
+@@ -2838,7 +2838,7 @@ static int oidc_handle_logout_request(re
+ 
+ 		/* see if this is PF-PA style logout in which case we return a transparent pixel */
+ 		const char *accept = oidc_util_hdr_in_accept_get(r);
+-		if ((apr_strnatcmp(url, OIDC_IMG_STYLE_LOGOUT_PARAM_VALUE) == 0)
++		if ((_oidc_strcmp(url, OIDC_IMG_STYLE_LOGOUT_PARAM_VALUE) == 0)
+ 				|| ((accept) && strstr(accept, OIDC_CONTENT_TYPE_IMAGE_PNG))) {
+ 			return oidc_util_http_send(r, (const char*) &oidc_transparent_pixel,
+ 					sizeof(oidc_transparent_pixel), OIDC_CONTENT_TYPE_IMAGE_PNG,
+@@ -2903,7 +2903,7 @@ static int oidc_handle_logout_backchanne
+ 		goto out;
+ 	}
+ 
+-	if ((jwt->header.alg == NULL) || (strcmp(jwt->header.alg, "none") == 0)) {
++	if ((jwt->header.alg == NULL) || (_oidc_strcmp(jwt->header.alg, "none") == 0)) {
+ 		oidc_error(r, "logout token is not signed");
+ 		goto out;
+ 	}
+@@ -3086,7 +3086,7 @@ static int oidc_handle_logout(request_re
+ 		return oidc_handle_logout_backchannel(r, c);
+ 	}
+ 
+-	if ((url == NULL) || (apr_strnatcmp(url, "") == 0)) {
++	if ((url == NULL) || (_oidc_strcmp(url, "") == 0)) {
+ 
+ 		url = c->default_slo_url;
+ 
+@@ -3291,7 +3291,7 @@ static int oidc_handle_session_managemen
+ 	}
+ 
+ 	/* see if this is a local logout during session management */
+-	if (apr_strnatcmp("logout", cmd) == 0) {
++	if (_oidc_strcmp("logout", cmd) == 0) {
+ 		oidc_debug(r,
+ 				"[session=logout] calling oidc_handle_logout_request because of session mgmt local logout call.");
+ 		return oidc_handle_logout_request(r, c, session, c->default_slo_url);
+@@ -3304,7 +3304,7 @@ static int oidc_handle_session_managemen
+ 	}
+ 
+ 	/* see if this is a request for the OP iframe */
+-	if (apr_strnatcmp("iframe_op", cmd) == 0) {
++	if (_oidc_strcmp("iframe_op", cmd) == 0) {
+ 		if (provider->check_session_iframe != NULL) {
+ 			return oidc_handle_session_management_iframe_op(r, c, session,
+ 					provider->check_session_iframe);
+@@ -3313,7 +3313,7 @@ static int oidc_handle_session_managemen
+ 	}
+ 
+ 	/* see if this is a request for the RP iframe */
+-	if (apr_strnatcmp("iframe_rp", cmd) == 0) {
++	if (_oidc_strcmp("iframe_rp", cmd) == 0) {
+ 		if ((provider->client_id != NULL)
+ 				&& (provider->check_session_iframe != NULL)) {
+ 			return oidc_handle_session_management_iframe_rp(r, c, session,
+@@ -3326,7 +3326,7 @@ static int oidc_handle_session_managemen
+ 	}
+ 
+ 	/* see if this is a request check the login state with the OP */
+-	if (apr_strnatcmp("check", cmd) == 0) {
++	if (_oidc_strcmp("check", cmd) == 0) {
+ 		id_token_hint = oidc_session_get_idtoken(r, session);
+ 		/*
+ 		 * TODO: this doesn't work with per-path provided auth_request_params and scopes
+@@ -3397,7 +3397,7 @@ static int oidc_handle_refresh_token_req
+ 	}
+ 
+ 	/* compare the access_token parameter used for XSRF protection */
+-	if (apr_strnatcmp(s_access_token, r_access_token) != 0) {
++	if (_oidc_strcmp(s_access_token, r_access_token) != 0) {
+ 		oidc_error(r,
+ 				"access_token passed in refresh request does not match the one stored in the session");
+ 		error_code = "no_access_token_match";
+@@ -3507,8 +3507,8 @@ static int oidc_handle_info_request(requ
+ 			OIDC_INFO_PARAM_ACCESS_TOKEN_REFRESH_INTERVAL, &s_interval);
+ 
+ 	/* see if this is a request for a format that is supported */
+-	if ((apr_strnatcmp(OIDC_HOOK_INFO_FORMAT_JSON, s_format) != 0)
+-			&& (apr_strnatcmp(OIDC_HOOK_INFO_FORMAT_HTML, s_format) != 0)) {
++	if ((_oidc_strcmp(OIDC_HOOK_INFO_FORMAT_JSON, s_format) != 0)
++			&& (_oidc_strcmp(OIDC_HOOK_INFO_FORMAT_HTML, s_format) != 0)) {
+ 		oidc_warn(r, "request for unknown format: %s", s_format);
+ 		return HTTP_UNSUPPORTED_MEDIA_TYPE;
+ 	}
+@@ -3668,13 +3668,13 @@ static int oidc_handle_info_request(requ
+ 		}
+ 	}
+ 
+-	if (apr_strnatcmp(OIDC_HOOK_INFO_FORMAT_JSON, s_format) == 0) {
++	if (_oidc_strcmp(OIDC_HOOK_INFO_FORMAT_JSON, s_format) == 0) {
+ 		/* JSON-encode the result */
+ 		r_value = oidc_util_encode_json_object(r, json, 0);
+ 		/* return the stringified JSON result */
+ 		rc = oidc_util_http_send(r, r_value, strlen(r_value),
+ 				OIDC_CONTENT_TYPE_JSON, OK);
+-	} else if (apr_strnatcmp(OIDC_HOOK_INFO_FORMAT_HTML, s_format) == 0) {
++	} else if (_oidc_strcmp(OIDC_HOOK_INFO_FORMAT_HTML, s_format) == 0) {
+ 		/* JSON-encode the result */
+ 		r_value = oidc_util_encode_json_object(r, json, JSON_INDENT(2));
+ 		rc = oidc_util_html_send(r, "Session Info", NULL, NULL,
+@@ -3769,7 +3769,7 @@ int oidc_handle_redirect_uri_request(req
+ 		r->user = "";
+ 		return OK;
+ 
+-	} else if ((r->args == NULL) || (apr_strnatcmp(r->args, "") == 0)) {
++	} else if ((r->args == NULL) || (_oidc_strcmp(r->args, "") == 0)) {
+ 
+ 		/* this is a "bare" request to the redirect URI, indicating implicit flow using the fragment response_mode */
+ 		return oidc_proto_javascript_implicit(r, c);
+diff -up mod_auth_openidc-2.4.9.4/src/mod_auth_openidc.h.orig mod_auth_openidc-2.4.9.4/src/mod_auth_openidc.h
+--- mod_auth_openidc-2.4.9.4/src/mod_auth_openidc.h.orig	2025-04-25 18:22:05.547909018 +0200
++++ mod_auth_openidc-2.4.9.4/src/mod_auth_openidc.h	2025-04-25 18:22:43.843630692 +0200
+@@ -63,6 +63,10 @@ APLOG_USE_MODULE(auth_openidc);
+ #define OIDC_DEBUG APLOG_DEBUG
+ #endif
+ 
++#define _oidc_strlen(s) ( s ? strlen(s) : 0 )
++#define _oidc_strcmp(a, b) ( (a && b) ? apr_strnatcmp(a, b) : -1 )
++#define _oidc_strncmp(a, b, size) ( (a && b) ? strncmp(a, b, size) : -1 )
++
+ #define oidc_log(r, level, fmt, ...) ap_log_rerror(APLOG_MARK, level, 0, r,"%s: %s", __FUNCTION__, apr_psprintf(r->pool, fmt, ##__VA_ARGS__))
+ #define oidc_slog(s, level, fmt, ...) ap_log_error(APLOG_MARK, level, 0, s, "%s: %s", __FUNCTION__, apr_psprintf(s->process->pool, fmt, ##__VA_ARGS__))
+ //#define oidc_log(r, level, fmt, ...) fprintf(stderr, "# %s: %s\n", __FUNCTION__, apr_psprintf(r->pool, fmt, ##__VA_ARGS__))
+diff -up mod_auth_openidc-2.4.9.4/src/oauth.c.orig mod_auth_openidc-2.4.9.4/src/oauth.c
+--- mod_auth_openidc-2.4.9.4/src/oauth.c.orig	2021-09-03 10:41:21.000000000 +0200
++++ mod_auth_openidc-2.4.9.4/src/oauth.c	2025-04-25 17:25:01.702761538 +0200
+@@ -153,7 +153,7 @@ static apr_byte_t oidc_oauth_validate_ac
+ 
+ 	const char *bearer_access_token_auth =
+ 			((c->oauth.introspection_client_auth_bearer_token != NULL)
+-					&& strcmp(c->oauth.introspection_client_auth_bearer_token,
++					&& _oidc_strcmp(c->oauth.introspection_client_auth_bearer_token,
+ 							"") == 0) ?
+ 									token : c->oauth.introspection_client_auth_bearer_token;
+ 
+@@ -166,7 +166,7 @@ static apr_byte_t oidc_oauth_validate_ac
+ 		return FALSE;
+ 
+ 	/* call the endpoint with the constructed parameter set and return the resulting response */
+-	return apr_strnatcmp(c->oauth.introspection_endpoint_method,
++	return _oidc_strcmp(c->oauth.introspection_endpoint_method,
+ 			OIDC_INTROSPECTION_METHOD_GET) == 0 ?
+ 					oidc_util_http_get(r, c->oauth.introspection_endpoint_url, params,
+ 							basic_auth, bearer_auth, c->oauth.ssl_validate_server,
+@@ -516,7 +516,7 @@ static apr_byte_t oidc_oauth_resolve_acc
+ 
+ 			if (oidc_oauth_parse_and_cache_token_expiry(r, c, result,
+ 					c->oauth.introspection_token_expiry_claim_name,
+-					apr_strnatcmp(
++					_oidc_strcmp(
+ 							c->oauth.introspection_token_expiry_claim_format,
+ 							OIDC_CLAIM_FORMAT_ABSOLUTE) == 0,
+ 							c->oauth.introspection_token_expiry_claim_required,
+diff -up mod_auth_openidc-2.4.9.4/src/parse.c.orig mod_auth_openidc-2.4.9.4/src/parse.c
+--- mod_auth_openidc-2.4.9.4/src/parse.c.orig	2021-09-03 10:41:21.000000000 +0200
++++ mod_auth_openidc-2.4.9.4/src/parse.c	2025-04-25 17:52:57.325509770 +0200
+@@ -65,8 +65,8 @@ static const char * oidc_valid_url_schem
+ 				"'%s' cannot be parsed as a URL (no scheme set)", arg);
+ 	}
+ 
+-	if ((scheme1 != NULL) && (apr_strnatcmp(uri.scheme, scheme1) != 0)) {
+-		if ((scheme2 != NULL) && (apr_strnatcmp(uri.scheme, scheme2) != 0)) {
++	if ((scheme1 != NULL) && (_oidc_strcmp(uri.scheme, scheme1) != 0)) {
++		if ((scheme2 != NULL) && (_oidc_strcmp(uri.scheme, scheme2) != 0)) {
+ 			return apr_psprintf(pool,
+ 					"'%s' cannot be parsed as a \"%s\" or \"%s\" URL (scheme == %s)!",
+ 					arg, scheme1, scheme2, uri.scheme);
+@@ -242,7 +242,7 @@ static const char *oidc_valid_string_opt
+ 		char *options[]) {
+ 	int i = 0;
+ 	while (options[i] != NULL) {
+-		if (apr_strnatcmp(arg, options[i]) == 0)
++		if (_oidc_strcmp(arg, options[i]) == 0)
+ 			break;
+ 		i++;
+ 	}
+@@ -278,16 +278,16 @@ const char *oidc_parse_cache_type(apr_po
+ 	if (rv != NULL)
+ 		return rv;
+ 
+-	if (apr_strnatcmp(arg, OIDC_CACHE_TYPE_SHM) == 0) {
++	if (_oidc_strcmp(arg, OIDC_CACHE_TYPE_SHM) == 0) {
+ 		*type = &oidc_cache_shm;
+ #ifdef USE_MEMCACHE
+-	} else if (apr_strnatcmp(arg, OIDC_CACHE_TYPE_MEMCACHE) == 0) {
++	} else if (_oidc_strcmp(arg, OIDC_CACHE_TYPE_MEMCACHE) == 0) {
+ 		*type = &oidc_cache_memcache;
+ #endif
+-	} else if (apr_strnatcmp(arg, OIDC_CACHE_TYPE_FILE) == 0) {
++	} else if (_oidc_strcmp(arg, OIDC_CACHE_TYPE_FILE) == 0) {
+ 		*type = &oidc_cache_file;
+ #ifdef USE_LIBHIREDIS
+-	} else if (apr_strnatcmp(arg, OIDC_CACHE_TYPE_REDIS) == 0) {
++	} else if (_oidc_strcmp(arg, OIDC_CACHE_TYPE_REDIS) == 0) {
+ 		*type = &oidc_cache_redis;
+ #endif
+ 	}
+@@ -324,9 +324,9 @@ const char *oidc_parse_session_type(apr_
+ 		*p = '\0';
+ 	}
+ 
+-	if (apr_strnatcmp(s, OIDC_SESSION_TYPE_SERVER_CACHE_STR) == 0) {
++	if (_oidc_strcmp(s, OIDC_SESSION_TYPE_SERVER_CACHE_STR) == 0) {
+ 		*type = OIDC_SESSION_TYPE_SERVER_CACHE;
+-	} else if (apr_strnatcmp(s, OIDC_SESSION_TYPE_CLIENT_COOKIE_STR) == 0) {
++	} else if (_oidc_strcmp(s, OIDC_SESSION_TYPE_CLIENT_COOKIE_STR) == 0) {
+ 		*type = OIDC_SESSION_TYPE_CLIENT_COOKIE;
+ 	}
+ 	return NULL;
+@@ -615,13 +615,13 @@ static const char *oidc_parse_key_value(
+ 	const char *rv = oidc_valid_string_option(pool, enc, options);
+ 	if (rv != NULL)
+ 		return rv;
+-	if (apr_strnatcmp(enc, OIDC_KEY_ENCODING_BASE64) == 0)
++	if (_oidc_strcmp(enc, OIDC_KEY_ENCODING_BASE64) == 0)
+ 		return oidc_parse_base64(pool, input, key, key_len);
+-	if (apr_strnatcmp(enc, OIDC_KEY_ENCODING_BASE64_URL) == 0)
++	if (_oidc_strcmp(enc, OIDC_KEY_ENCODING_BASE64_URL) == 0)
+ 		return oidc_parse_base64url(pool, input, key, key_len);
+-	if (apr_strnatcmp(enc, OIDC_KEY_ENCODING_HEX) == 0)
++	if (_oidc_strcmp(enc, OIDC_KEY_ENCODING_HEX) == 0)
+ 		return oidc_parse_hex(pool, input, key, key_len);
+-	if (apr_strnatcmp(enc, OIDC_KEY_ENCODING_PLAIN) == 0) {
++	if (_oidc_strcmp(enc, OIDC_KEY_ENCODING_PLAIN) == 0) {
+ 		*key = apr_pstrdup(pool, input);
+ 		*key_len = strlen(*key);
+ 	}
+@@ -638,7 +638,7 @@ const char *oidc_parse_enc_kid_key_tuple
+ 	const char *rv = NULL;
+ 	char *s = NULL, *p = NULL, *q = NULL, *enc = NULL;
+ 
+-	if ((tuple == NULL) || (apr_strnatcmp(tuple, "") == 0))
++	if ((tuple == NULL) || (_oidc_strcmp(tuple, "") == 0))
+ 		return "tuple value not set";
+ 
+ 	s = apr_pstrdup(pool, tuple);
+@@ -678,11 +678,11 @@ const char *oidc_parse_enc_kid_key_tuple
+  * convert a "pass id token as" value to an integer
+  */
+ static int oidc_parse_pass_idtoken_as_str2int(const char *v) {
+-	if (apr_strnatcmp(v, OIDC_PASS_ID_TOKEN_AS_CLAIMS_STR) == 0)
++	if (_oidc_strcmp(v, OIDC_PASS_ID_TOKEN_AS_CLAIMS_STR) == 0)
+ 		return OIDC_PASS_IDTOKEN_AS_CLAIMS;
+-	if (apr_strnatcmp(v, OIDC_PASS_IDTOKEN_AS_PAYLOAD_STR) == 0)
++	if (_oidc_strcmp(v, OIDC_PASS_IDTOKEN_AS_PAYLOAD_STR) == 0)
+ 		return OIDC_PASS_IDTOKEN_AS_PAYLOAD;
+-	if (apr_strnatcmp(v, OIDC_PASS_IDTOKEN_AS_SERIALIZED_STR) == 0)
++	if (_oidc_strcmp(v, OIDC_PASS_IDTOKEN_AS_SERIALIZED_STR) == 0)
+ 		return OIDC_PASS_IDTOKEN_AS_SERIALIZED;
+ 	return -1;
+ }
+@@ -730,11 +730,11 @@ const char *oidc_parse_pass_idtoken_as(a
+  * convert a "pass userinfo as" value to an integer
+  */
+ static int oidc_parse_pass_userinfo_as_str2int(const char *v) {
+-	if (apr_strnatcmp(v, OIDC_PASS_USERINFO_AS_CLAIMS_STR) == 0)
++	if (_oidc_strcmp(v, OIDC_PASS_USERINFO_AS_CLAIMS_STR) == 0)
+ 		return OIDC_PASS_USERINFO_AS_CLAIMS;
+-	if (apr_strnatcmp(v, OIDC_PASS_USERINFO_AS_JSON_OBJECT_STR) == 0)
++	if (_oidc_strcmp(v, OIDC_PASS_USERINFO_AS_JSON_OBJECT_STR) == 0)
+ 		return OIDC_PASS_USERINFO_AS_JSON_OBJECT;
+-	if (apr_strnatcmp(v, OIDC_PASS_USERINFO_AS_JWT_STR) == 0)
++	if (_oidc_strcmp(v, OIDC_PASS_USERINFO_AS_JWT_STR) == 0)
+ 		return OIDC_PASS_USERINFO_AS_JWT;
+ 	return -1;
+ }
+@@ -780,7 +780,7 @@ const char *oidc_parse_pass_userinfo_as(
+  * convert a "logout_on_error" to an integer
+  */
+ static int oidc_parse_logout_on_error_refresh_as_str2int(const char *v) {
+-	if (apr_strnatcmp(v, OIDC_LOGOUT_ON_ERROR_REFRESH_STR) == 0)
++	if (_oidc_strcmp(v, OIDC_LOGOUT_ON_ERROR_REFRESH_STR) == 0)
+ 		return OIDC_LOGOUT_ON_ERROR_REFRESH;
+ 	return OIDC_CONFIG_POS_INT_UNSET;
+ }
+@@ -841,11 +841,11 @@ const char *oidc_accept_oauth_token_in2s
+  * convert an "accept OAuth 2.0 token in" value to an integer
+  */
+ static apr_byte_t oidc_parse_oauth_accept_token_in_str2byte(const char *v) {
+-	if (apr_strnatcmp(v, OIDC_OAUTH_ACCEPT_TOKEN_IN_HEADER_STR) == 0)
++	if (_oidc_strcmp(v, OIDC_OAUTH_ACCEPT_TOKEN_IN_HEADER_STR) == 0)
+ 		return OIDC_OAUTH_ACCEPT_TOKEN_IN_HEADER;
+-	if (apr_strnatcmp(v, OIDC_OAUTH_ACCEPT_TOKEN_IN_POST_STR) == 0)
++	if (_oidc_strcmp(v, OIDC_OAUTH_ACCEPT_TOKEN_IN_POST_STR) == 0)
+ 		return OIDC_OAUTH_ACCEPT_TOKEN_IN_POST;
+-	if (apr_strnatcmp(v, OIDC_OAUTH_ACCEPT_TOKEN_IN_QUERY_STR) == 0)
++	if (_oidc_strcmp(v, OIDC_OAUTH_ACCEPT_TOKEN_IN_QUERY_STR) == 0)
+ 		return OIDC_OAUTH_ACCEPT_TOKEN_IN_QUERY;
+ 	if (strstr(v, OIDC_OAUTH_ACCEPT_TOKEN_IN_COOKIE_STR) == v)
+ 		return OIDC_OAUTH_ACCEPT_TOKEN_IN_COOKIE;
+@@ -923,7 +923,7 @@ const char *oidc_parse_claim_required(ap
+ 	const char *rv = oidc_valid_string_option(pool, arg, options);
+ 	if (rv != NULL)
+ 		return rv;
+-	*is_required = (apr_strnatcmp(arg, OIDC_CLAIM_REQUIRED_MANDATORY) == 0);
++	*is_required = (_oidc_strcmp(arg, OIDC_CLAIM_REQUIRED_MANDATORY) == 0);
+ 	return NULL;
+ }
+ 
+@@ -958,16 +958,16 @@ const char *oidc_parse_set_claims_as(apr
+ 	if (rv != NULL)
+ 		return rv;
+ 
+-	if (apr_strnatcmp(arg, OIDC_PASS_CLAIMS_AS_BOTH) == 0) {
++	if (_oidc_strcmp(arg, OIDC_PASS_CLAIMS_AS_BOTH) == 0) {
+ 		*in_headers = 1;
+ 		*in_env_vars = 1;
+-	} else if (apr_strnatcmp(arg, OIDC_PASS_CLAIMS_AS_HEADERS) == 0) {
++	} else if (_oidc_strcmp(arg, OIDC_PASS_CLAIMS_AS_HEADERS) == 0) {
+ 		*in_headers = 1;
+ 		*in_env_vars = 0;
+-	} else if (apr_strnatcmp(arg, OIDC_PASS_CLAIMS_AS_ENV) == 0) {
++	} else if (_oidc_strcmp(arg, OIDC_PASS_CLAIMS_AS_ENV) == 0) {
+ 		*in_headers = 0;
+ 		*in_env_vars = 1;
+-	} else if (apr_strnatcmp(arg, OIDC_PASS_CLAIMS_AS_NONE) == 0) {
++	} else if (_oidc_strcmp(arg, OIDC_PASS_CLAIMS_AS_NONE) == 0) {
+ 		*in_headers = 0;
+ 		*in_env_vars = 0;
+ 	}
+@@ -997,15 +997,15 @@ const char *oidc_parse_unauth_action(apr
+ 	if (rv != NULL)
+ 		return rv;
+ 
+-	if (apr_strnatcmp(arg, OIDC_UNAUTH_ACTION_AUTH_STR) == 0)
++	if (_oidc_strcmp(arg, OIDC_UNAUTH_ACTION_AUTH_STR) == 0)
+ 		*action = OIDC_UNAUTH_AUTHENTICATE;
+-	else if (apr_strnatcmp(arg, OIDC_UNAUTH_ACTION_PASS_STR) == 0)
++	else if (_oidc_strcmp(arg, OIDC_UNAUTH_ACTION_PASS_STR) == 0)
+ 		*action = OIDC_UNAUTH_PASS;
+-	else if (apr_strnatcmp(arg, OIDC_UNAUTH_ACTION_401_STR) == 0)
++	else if (_oidc_strcmp(arg, OIDC_UNAUTH_ACTION_401_STR) == 0)
+ 		*action = OIDC_UNAUTH_RETURN401;
+-	else if (apr_strnatcmp(arg, OIDC_UNAUTH_ACTION_407_STR) == 0)
++	else if (_oidc_strcmp(arg, OIDC_UNAUTH_ACTION_407_STR) == 0)
+ 		*action = OIDC_UNAUTH_RETURN407;
+-	else if (apr_strnatcmp(arg, OIDC_UNAUTH_ACTION_410_STR) == 0)
++	else if (_oidc_strcmp(arg, OIDC_UNAUTH_ACTION_410_STR) == 0)
+ 		*action = OIDC_UNAUTH_RETURN410;
+ 
+ 	return NULL;
+@@ -1029,11 +1029,11 @@ const char *oidc_parse_unautz_action(apr
+ 	if (rv != NULL)
+ 		return rv;
+ 
+-	if (apr_strnatcmp(arg, OIDC_UNAUTZ_ACTION_AUTH_STR) == 0)
++	if (_oidc_strcmp(arg, OIDC_UNAUTZ_ACTION_AUTH_STR) == 0)
+ 		*action = OIDC_UNAUTZ_AUTHENTICATE;
+-	else if (apr_strnatcmp(arg, OIDC_UNAUTZ_ACTION_401_STR) == 0)
++	else if (_oidc_strcmp(arg, OIDC_UNAUTZ_ACTION_401_STR) == 0)
+ 		*action = OIDC_UNAUTZ_RETURN401;
+-	else if (apr_strnatcmp(arg, OIDC_UNAUTZ_ACTION_403_STR) == 0)
++	else if (_oidc_strcmp(arg, OIDC_UNAUTZ_ACTION_403_STR) == 0)
+ 		*action = OIDC_UNAUTZ_RETURN403;
+ 
+ 	return NULL;
+@@ -1061,7 +1061,7 @@ const char *oidc_valid_string_in_array(a
+ 				found = TRUE;
+ 				if (value != NULL) {
+ 					if ((preference != NULL)
+-							&& (apr_strnatcmp(json_string_value(elem),
++							&& (_oidc_strcmp(json_string_value(elem),
+ 									preference) == 0)) {
+ 						*value = apr_pstrdup(pool, json_string_value(elem));
+ 						break;
+@@ -1167,9 +1167,9 @@ const char *oidc_parse_userinfo_token_me
+ 	if (rv != NULL)
+ 		return rv;
+ 
+-	if (apr_strnatcmp(arg, OIDC_USER_INFO_TOKEN_METHOD_HEADER_STR) == 0)
++	if (_oidc_strcmp(arg, OIDC_USER_INFO_TOKEN_METHOD_HEADER_STR) == 0)
+ 		*int_value = OIDC_USER_INFO_TOKEN_METHOD_HEADER;
+-	if (apr_strnatcmp(arg, OIDC_USER_INFO_TOKEN_METHOD_POST_STR) == 0)
++	if (_oidc_strcmp(arg, OIDC_USER_INFO_TOKEN_METHOD_POST_STR) == 0)
+ 		*int_value = OIDC_USER_INFO_TOKEN_METHOD_POST;
+ 
+ 	return NULL;
+@@ -1241,13 +1241,13 @@ const char *oidc_parse_token_binding_pol
+ 	if (rv != NULL)
+ 		return rv;
+ 
+-	if (apr_strnatcmp(arg, OIDC_TOKEN_BINDING_POLICY_DISABLED_STR) == 0)
++	if (_oidc_strcmp(arg, OIDC_TOKEN_BINDING_POLICY_DISABLED_STR) == 0)
+ 		*policy = OIDC_TOKEN_BINDING_POLICY_DISABLED;
+-	else if (apr_strnatcmp(arg, OIDC_TOKEN_BINDING_POLICY_OPTIONAL_STR) == 0)
++	else if (_oidc_strcmp(arg, OIDC_TOKEN_BINDING_POLICY_OPTIONAL_STR) == 0)
+ 		*policy = OIDC_TOKEN_BINDING_POLICY_OPTIONAL;
+-	else if (apr_strnatcmp(arg, OIDC_TOKEN_BINDING_POLICY_REQUIRED_STR) == 0)
++	else if (_oidc_strcmp(arg, OIDC_TOKEN_BINDING_POLICY_REQUIRED_STR) == 0)
+ 		*policy = OIDC_TOKEN_BINDING_POLICY_REQUIRED;
+-	else if (apr_strnatcmp(arg, OIDC_TOKEN_BINDING_POLICY_ENFORCED_STR) == 0)
++	else if (_oidc_strcmp(arg, OIDC_TOKEN_BINDING_POLICY_ENFORCED_STR) == 0)
+ 		*policy = OIDC_TOKEN_BINDING_POLICY_ENFORCED;
+ 
+ 	return NULL;
+@@ -1276,9 +1276,9 @@ const char *oidc_parse_auth_request_meth
+ 	if (rv != NULL)
+ 		return rv;
+ 
+-	if (apr_strnatcmp(arg, OIDC_AUTH_REQUEST_METHOD_GET_STR) == 0)
++	if (_oidc_strcmp(arg, OIDC_AUTH_REQUEST_METHOD_GET_STR) == 0)
+ 		*method = OIDC_AUTH_REQUEST_METHOD_GET;
+-	else if (apr_strnatcmp(arg, OIDC_AUTH_REQEUST_METHOD_POST_STR) == 0)
++	else if (_oidc_strcmp(arg, OIDC_AUTH_REQEUST_METHOD_POST_STR) == 0)
+ 		*method = OIDC_AUTH_REQUEST_METHOD_POST;
+ 
+ 	return NULL;
+@@ -1340,13 +1340,13 @@ const char *oidc_parse_set_state_input_h
+ 	if (rv != NULL)
+ 		return rv;
+ 
+-	if (apr_strnatcmp(arg, OIDC_STATE_INPUT_HEADERS_AS_BOTH) == 0) {
++	if (_oidc_strcmp(arg, OIDC_STATE_INPUT_HEADERS_AS_BOTH) == 0) {
+ 		*state_input_headers = OIDC_STATE_INPUT_HEADERS_USER_AGENT | OIDC_STATE_INPUT_HEADERS_X_FORWARDED_FOR;
+-	} else if (apr_strnatcmp(arg, OIDC_STATE_INPUT_HEADERS_AS_USER_AGENT) == 0) {
++	} else if (_oidc_strcmp(arg, OIDC_STATE_INPUT_HEADERS_AS_USER_AGENT) == 0) {
+ 		*state_input_headers = OIDC_STATE_INPUT_HEADERS_USER_AGENT;
+-	} else if (apr_strnatcmp(arg, OIDC_STATE_INPUT_HEADERS_AS_X_FORWARDED_FOR) == 0) {
++	} else if (_oidc_strcmp(arg, OIDC_STATE_INPUT_HEADERS_AS_X_FORWARDED_FOR) == 0) {
+ 		*state_input_headers = OIDC_STATE_INPUT_HEADERS_X_FORWARDED_FOR;
+-	} else if (apr_strnatcmp(arg, OIDC_STATE_INPUT_HEADERS_AS_NONE) == 0) {
++	} else if (_oidc_strcmp(arg, OIDC_STATE_INPUT_HEADERS_AS_NONE) == 0) {
+ 		*state_input_headers = 0;
+ 	}
+ 
+diff -up mod_auth_openidc-2.4.9.4/src/proto.c.orig mod_auth_openidc-2.4.9.4/src/proto.c
+--- mod_auth_openidc-2.4.9.4/src/proto.c.orig	2025-04-25 17:24:28.179907635 +0200
++++ mod_auth_openidc-2.4.9.4/src/proto.c	2025-04-25 17:25:01.703150372 +0200
+@@ -150,7 +150,7 @@ static apr_byte_t oidc_proto_param_needs
+ 	while (index < json_array_size(copy_from_request)) {
+ 		json_t *value = json_array_get(copy_from_request, index);
+ 		if ((json_is_string(value))
+-				&& (apr_strnatcmp(json_string_value(value), parameter_name) == 0)) {
++				&& (_oidc_strcmp(json_string_value(value), parameter_name) == 0)) {
+ 			return TRUE;
+ 		}
+ 		index++;
+@@ -258,7 +258,7 @@ apr_byte_t oidc_proto_get_encryption_jwk
+ 
+ 		const char *use = json_string_value(
+ 				json_object_get(elem, OIDC_JWK_USE));
+-		if ((use != NULL) && (strcmp(use, OIDC_JWK_ENC) != 0)) {
++		if ((use != NULL) && (_oidc_strcmp(use, OIDC_JWK_ENC) != 0)) {
+ 			oidc_debug(r, "skipping key because of non-matching \"%s\": \"%s\"",
+ 					OIDC_JWK_USE, use);
+ 			continue;
+@@ -346,7 +346,7 @@ char* oidc_proto_create_request_object(r
+ 			&request_object->header.alg, "none");
+ 
+ 	/* see if we need to sign the request object */
+-	if (strcmp(request_object->header.alg, "none") != 0) {
++	if (_oidc_strcmp(request_object->header.alg, "none") != 0) {
+ 
+ 		sjwk = NULL;
+ 		jwk_needs_destroy = 0;
+@@ -543,9 +543,9 @@ static void oidc_proto_add_request_param
+ 		}
+ 
+ 		/* ensure parameter variable to have a valid value */
+-		if (strcmp(request_object_type_str, OIDC_PROTO_REQUEST_OBJECT) == 0) {
++		if (_oidc_strcmp(request_object_type_str, OIDC_PROTO_REQUEST_OBJECT) == 0) {
+ 			parameter = OIDC_PROTO_REQUEST_OBJECT;
+-		} else if (strcmp(request_object_type_str, OIDC_PROTO_REQUEST_URI)
++		} else if (_oidc_strcmp(request_object_type_str, OIDC_PROTO_REQUEST_URI)
+ 				!= 0) {
+ 			oidc_error(r, "Bad request_object_type in config: %s",
+ 					request_object_type_str);
+@@ -555,7 +555,7 @@ static void oidc_proto_add_request_param
+ 
+ 	/* create request value */
+ 	char *value = NULL;
+-	if (strcmp(parameter, OIDC_PROTO_REQUEST_URI) == 0) {
++	if (_oidc_strcmp(parameter, OIDC_PROTO_REQUEST_URI) == 0) {
+ 		/* parameter is "request_uri" */
+ 		value = oidc_proto_create_request_uri(r, provider,
+ 				request_object_config, redirect_uri, params);
+@@ -623,7 +623,7 @@ void add_auth_request_params(request_rec
+ 		key = ap_getword(r->pool, (const char**) &val, OIDC_CHAR_EQUAL);
+ 		ap_unescape_url(key);
+ 		ap_unescape_url(val);
+-		if (apr_strnatcmp(val, OIDC_STR_HASH) != 0) {
++		if (_oidc_strcmp(val, OIDC_STR_HASH) != 0) {
+ 			apr_table_add(params, key, val);
+ 			continue;
+ 		}
+@@ -664,7 +664,7 @@ int oidc_proto_authorization_request(req
+ 	/* concat the per-path scopes with the per-provider scopes */
+ 	const char *scope = provider->scope;
+ 	if (path_scope != NULL)
+-		scope = ((scope != NULL) && (apr_strnatcmp(scope, "") != 0)) ?
++		scope = ((scope != NULL) && (_oidc_strcmp(scope, "") != 0)) ?
+ 				apr_pstrcat(r->pool, scope, OIDC_STR_SPACE, path_scope,
+ 						NULL) :
+ 						path_scope;
+@@ -1130,7 +1130,7 @@ apr_byte_t oidc_proto_validate_nonce(req
+ 	}
+ 
+ 	/* see if the nonce in the id_token matches the one that we sent in the authorization request */
+-	if (apr_strnatcmp(nonce, j_nonce) != 0) {
++	if (_oidc_strcmp(nonce, j_nonce) != 0) {
+ 		oidc_error(r,
+ 				"the nonce value (%s) in the id_token did not match the one stored in the browser session (%s)",
+ 				j_nonce, nonce);
+@@ -1172,7 +1172,7 @@ apr_byte_t oidc_proto_validate_aud_and_a
+ 	 * is different than the authorized party; it MAY be included even when the authorized party is
+ 	 * the same as the sole audience.
+ 	 */
+-	if ((azp != NULL) && (apr_strnatcmp(azp, provider->client_id) != 0)) {
++	if ((azp != NULL) && (_oidc_strcmp(azp, provider->client_id) != 0)) {
+ 		oidc_error(r,
+ 				"the \"%s\" claim (%s) is present in the id_token, but is not equal to the configured client_id (%s)",
+ 				OIDC_CLAIM_AZP, azp, provider->client_id);
+@@ -1188,7 +1188,7 @@ apr_byte_t oidc_proto_validate_aud_and_a
+ 		if (json_is_string(aud)) {
+ 
+ 			/* a single-valued audience must be equal to our client_id */
+-			if (apr_strnatcmp(json_string_value(aud), provider->client_id)
++			if (_oidc_strcmp(json_string_value(aud), provider->client_id)
+ 					!= 0) {
+ 				oidc_error(r,
+ 						"the configured client_id (%s) did not match the \"%s\" claim value (%s) in the id_token",
+@@ -1435,7 +1435,7 @@ static apr_byte_t oidc_proto_get_key_fro
+ 		if ((jwt->header.kid == NULL) && (x5t == NULL)) {
+ 			const char *use = json_string_value(
+ 					json_object_get(elem, OIDC_JWK_USE));
+-			if ((use != NULL) && (strcmp(use, OIDC_JWK_SIG) != 0)) {
++			if ((use != NULL) && (_oidc_strcmp(use, OIDC_JWK_SIG) != 0)) {
+ 				oidc_debug(r,
+ 						"skipping key because of non-matching \"%s\": \"%s\"",
+ 						OIDC_JWK_USE, use);
+@@ -1459,7 +1459,7 @@ static apr_byte_t oidc_proto_get_key_fro
+ 		/* we are looking for a specific kid, get the kid from the current element */
+ 		/* compare the requested kid against the current element */
+ 		if ((jwt->header.kid != NULL) && (jwk->kid != NULL)
+-				&& (apr_strnatcmp(jwt->header.kid, jwk->kid) == 0)) {
++				&& (_oidc_strcmp(jwt->header.kid, jwk->kid) == 0)) {
+ 			oidc_jwk_to_json(r->pool, jwk, &jwk_json, &err);
+ 			oidc_debug(r, "found matching kid: \"%s\" for jwk: %s",
+ 					jwt->header.kid, jwk_json);
+@@ -1473,7 +1473,7 @@ static apr_byte_t oidc_proto_get_key_fro
+ 				NULL);
+ 		/* compare the requested thumbprint against the current element */
+ 		if ((s_x5t != NULL) && (x5t != NULL)
+-				&& (apr_strnatcmp(x5t, s_x5t) == 0)) {
++				&& (_oidc_strcmp(x5t, s_x5t) == 0)) {
+ 			oidc_jwk_to_json(r->pool, jwk, &jwk_json, &err);
+ 			oidc_debug(r, "found matching %s: \"%s\" for jwk: %s", OIDC_JWK_X5T,
+ 					x5t, jwk_json);
+@@ -1548,7 +1548,7 @@ apr_byte_t oidc_proto_jwt_verify(request
+ 	apr_hash_t *dynamic_keys = NULL;
+ 
+ 	if (alg != NULL) {
+-		if (apr_strnatcmp(jwt->header.alg, alg) != 0) {
++		if (_oidc_strcmp(jwt->header.alg, alg) != 0) {
+ 			oidc_error(r,
+ 					"JWT was not signed with the expected configured algorithm: %s != %s",
+ 					jwt->header.alg, alg);
+@@ -1663,7 +1663,7 @@ apr_byte_t oidc_proto_parse_idtoken(requ
+ 			(*jwt)->header.value.str, (*jwt)->payload.value.str);
+ 
+ 	// make signature validation exception for 'code' flow and the algorithm NONE
+-	if (is_code_flow == FALSE || strcmp((*jwt)->header.alg, "none") != 0) {
++	if (is_code_flow == FALSE || _oidc_strcmp((*jwt)->header.alg, "none") != 0) {
+ 
+ 		jwk = NULL;
+ 		if (oidc_util_create_symmetric_key(r, provider->client_secret, 0,
+@@ -1929,7 +1929,7 @@ apr_byte_t oidc_proto_token_endpoint_aut
+ 	if ((token_endpoint_auth == NULL) && (client_secret != NULL))
+ 		token_endpoint_auth = OIDC_PROTO_CLIENT_SECRET_BASIC;
+ 
+-	if ((token_endpoint_auth == NULL) || (apr_strnatcmp(token_endpoint_auth,
++	if ((token_endpoint_auth == NULL) || (_oidc_strcmp(token_endpoint_auth,
+ 			OIDC_PROTO_ENDPOINT_AUTH_NONE) == 0)) {
+ 		oidc_debug(r,
+ 				"no client secret is configured or the token endpoint auth method was set to \"%s\"; calling the token endpoint without client authentication; only public clients are supported",
+@@ -1939,34 +1939,34 @@ apr_byte_t oidc_proto_token_endpoint_aut
+ 
+ 	// if no client_secret is set and we don't authenticate using private_key_jwt,
+ 	// we can only be a public client since the other methods require a client_secret
+-	if ((client_secret == NULL) && (apr_strnatcmp(token_endpoint_auth,
++	if ((client_secret == NULL) && (_oidc_strcmp(token_endpoint_auth,
+ 			OIDC_PROTO_PRIVATE_KEY_JWT) != 0)) {
+ 		oidc_debug(r,
+ 				"no client secret set and not using private_key_jwt, assume we are a public client");
+ 		return oidc_proto_endpoint_auth_none(r, client_id, params);
+ 	}
+ 
+-	if (apr_strnatcmp(token_endpoint_auth,
++	if (_oidc_strcmp(token_endpoint_auth,
+ 			OIDC_PROTO_CLIENT_SECRET_BASIC) == 0)
+ 		return oidc_proto_endpoint_client_secret_basic(r, client_id,
+ 				client_secret, basic_auth_str);
+ 
+-	if (apr_strnatcmp(token_endpoint_auth,
++	if (_oidc_strcmp(token_endpoint_auth,
+ 			OIDC_PROTO_CLIENT_SECRET_POST) == 0)
+ 		return oidc_proto_endpoint_client_secret_post(r, client_id,
+ 				client_secret, params);
+ 
+-	if (apr_strnatcmp(token_endpoint_auth,
++	if (_oidc_strcmp(token_endpoint_auth,
+ 			OIDC_PROTO_CLIENT_SECRET_JWT) == 0)
+ 		return oidc_proto_endpoint_auth_client_secret_jwt(r, client_id,
+ 				client_secret, audience, params);
+ 
+-	if (apr_strnatcmp(token_endpoint_auth,
++	if (_oidc_strcmp(token_endpoint_auth,
+ 			OIDC_PROTO_PRIVATE_KEY_JWT) == 0)
+ 		return oidc_proto_endpoint_auth_private_key_jwt(r, cfg, client_id,
+ 				client_signing_keys, audience, params);
+ 
+-	if (apr_strnatcmp(token_endpoint_auth,
++	if (_oidc_strcmp(token_endpoint_auth,
+ 			OIDC_PROTO_BEARER_ACCESS_TOKEN) == 0) {
+ 		return oidc_proto_endpoint_access_token_bearer(r, cfg,
+ 				bearer_access_token, bearer_auth_str);
+@@ -2253,7 +2253,7 @@ static apr_byte_t oidc_proto_resolve_com
+ 							NULL, NULL, NULL);
+ 				}
+ 			}
+-			if ((s_json != NULL) && (strcmp(s_json, "") != 0)) {
++			if ((s_json != NULL) && (_oidc_strcmp(s_json, "") != 0)) {
+ 				oidc_jwt_t *jwt = NULL;
+ 				if (oidc_jwt_parse(r->pool, s_json, &jwt,
+ 						oidc_util_merge_symmetric_key(r->pool,
+@@ -2358,7 +2358,7 @@ apr_byte_t oidc_proto_resolve_userinfo(r
+ 	}
+ 
+ 	if ((id_token_sub != NULL) && (user_info_sub != NULL)) {
+-		if (apr_strnatcmp(id_token_sub, user_info_sub) != 0) {
++		if (_oidc_strcmp(id_token_sub, user_info_sub) != 0) {
+ 			oidc_error(r,
+ 					"\"%s\" claim (\"%s\") returned from userinfo endpoint does not match the one in the id_token (\"%s\")",
+ 					OIDC_CLAIM_SUB, user_info_sub, id_token_sub);
+@@ -2809,7 +2809,7 @@ static apr_byte_t oidc_proto_validate_re
+ 	if (requested_response_mode == NULL)
+ 		requested_response_mode = default_response_mode;
+ 
+-	if (apr_strnatcmp(requested_response_mode, response_mode) != 0) {
++	if (_oidc_strcmp(requested_response_mode, response_mode) != 0) {
+ 		oidc_error(r,
+ 				"requested response mode (%s) does not match the response mode used by the OP (%s)",
+ 				requested_response_mode, response_mode);
+@@ -2827,7 +2827,7 @@ static apr_byte_t oidc_proto_validate_is
+ 		const char *configured_client_id, const char *response_client_id) {
+ 
+ 	if (response_issuer != NULL) {
+-		if (apr_strnatcmp(configured_issuer, response_issuer) != 0) {
++		if (_oidc_strcmp(configured_issuer, response_issuer) != 0) {
+ 			oidc_error(r,
+ 					"configured issuer (%s) does not match the issuer provided in the response by the OP (%s)",
+ 					configured_issuer, response_issuer);
+@@ -2836,7 +2836,7 @@ static apr_byte_t oidc_proto_validate_is
+ 	}
+ 
+ 	if (response_client_id != NULL) {
+-		if (apr_strnatcmp(configured_client_id, response_client_id) != 0) {
++		if (_oidc_strcmp(configured_client_id, response_client_id) != 0) {
+ 			oidc_error(r,
+ 					"configured client_id (%s) does not match the client_id provided in the response by the OP (%s)",
+ 					configured_client_id, response_client_id);
+diff -up mod_auth_openidc-2.4.9.4/src/session.c.orig mod_auth_openidc-2.4.9.4/src/session.c
+--- mod_auth_openidc-2.4.9.4/src/session.c.orig	2021-09-03 10:41:21.000000000 +0200
++++ mod_auth_openidc-2.4.9.4/src/session.c	2025-04-25 17:25:01.703365305 +0200
+@@ -134,7 +134,7 @@ apr_byte_t oidc_session_load_cache_by_uu
+ 			/* compare the session id in the cache value so it allows  us to detect cache corruption */
+ 			oidc_session_get(r, z, OIDC_SESSION_SESSION_ID, &stored_uuid);
+ 			if ((stored_uuid == NULL)
+-					|| (apr_strnatcmp(stored_uuid, uuid) != 0)) {
++					|| (_oidc_strcmp(stored_uuid, uuid) != 0)) {
+ 				oidc_error(r,
+ 						"cache corruption detected: stored session id (%s) is not equal to requested session id (%s)",
+ 						stored_uuid, uuid);
+@@ -306,7 +306,7 @@ apr_byte_t oidc_session_extract(request_
+ 	if (ses_p_tb_id != NULL) {
+ 		env_p_tb_id = oidc_util_get_provided_token_binding_id(r);
+ 		if ((env_p_tb_id == NULL)
+-				|| (apr_strnatcmp(env_p_tb_id, ses_p_tb_id) != 0)) {
++				|| (_oidc_strcmp(env_p_tb_id, ses_p_tb_id) != 0)) {
+ 			oidc_error(r,
+ 					"the Provided Token Binding ID stored in the session doesn't match the one presented by the user agent");
+ 			oidc_session_clear(r, z);
+diff -up mod_auth_openidc-2.4.9.4/src/util.c.orig mod_auth_openidc-2.4.9.4/src/util.c
+--- mod_auth_openidc-2.4.9.4/src/util.c.orig	2025-04-25 17:24:28.153960326 +0200
++++ mod_auth_openidc-2.4.9.4/src/util.c	2025-04-25 19:13:00.629092412 +0200
+@@ -480,8 +480,8 @@ static const char* oidc_get_current_url_
+ #endif
+ 	}
+ 	if ((scheme_str == NULL)
+-			|| ((apr_strnatcmp(scheme_str, "http") != 0)
+-					&& (apr_strnatcmp(scheme_str, "https") != 0))) {
++			|| ((_oidc_strcmp(scheme_str, "http") != 0)
++					&& (_oidc_strcmp(scheme_str, "https") != 0))) {
+ 		oidc_warn(r,
+ 				"detected HTTP scheme \"%s\" is not \"http\" nor \"https\"; perhaps your reverse proxy passes a wrongly configured \"%s\" header: falling back to default \"https\"",
+ 				scheme_str, OIDC_HTTP_HDR_X_FORWARDED_PROTO);
+@@ -562,9 +562,9 @@ static const char* oidc_get_current_url_
+ 	 * determine the port locally and don't print it when it's the default for the protocol
+ 	 */
+ 	const apr_port_t port = r->connection->local_addr->port;
+-	if ((apr_strnatcmp(scheme_str, "https") == 0) && port == 443)
++	if ((_oidc_strcmp(scheme_str, "https") == 0) && port == 443)
+ 		return NULL;
+-	else if ((apr_strnatcmp(scheme_str, "http") == 0) && port == 80)
++	else if ((_oidc_strcmp(scheme_str, "http") == 0) && port == 80)
+ 		return NULL;
+ 
+ 	port_str = apr_psprintf(r->pool, "%u", port);
+@@ -743,7 +743,7 @@ static int oidc_util_http_add_form_url_e
+ 		const char *value) {
+ 	oidc_http_encode_t *ctx = (oidc_http_encode_t*) rec;
+ 	oidc_debug(ctx->r, "processing: %s=%s", key,
+-			(strncmp(key, OIDC_PROTO_CLIENT_SECRET, strlen(OIDC_PROTO_CLIENT_SECRET)) == 0) ? "***" : value);
++			(_oidc_strncmp(key, OIDC_PROTO_CLIENT_SECRET, strlen(OIDC_PROTO_CLIENT_SECRET)) == 0) ? "***" : value);
+ 	const char *sep = ctx->encoded_params ? OIDC_STR_AMP : "";
+ 	ctx->encoded_params = apr_psprintf(ctx->r->pool, "%s%s%s=%s",
+ 			ctx->encoded_params ? ctx->encoded_params : "", sep,
+@@ -1094,7 +1094,7 @@ static char* oidc_util_get_cookie_path(r
+ 	char *rv = NULL, *requestPath = oidc_util_get_path(r);
+ 	char *cookie_path = oidc_cfg_dir_cookie_path(r);
+ 	if (cookie_path != NULL) {
+-		if (strncmp(cookie_path, requestPath, strlen(cookie_path)) == 0)
++		if (_oidc_strncmp(cookie_path, requestPath, strlen(cookie_path)) == 0)
+ 			rv = cookie_path;
+ 		else {
+ 			oidc_warn(r,
+@@ -1153,7 +1153,7 @@ void oidc_util_set_cookie(request_rec *r
+ 	const char *appendString = NULL;
+ 
+ 	/* see if we need to clear the cookie */
+-	if (apr_strnatcmp(cookieValue, "") == 0)
++	if (_oidc_strcmp(cookieValue, "") == 0)
+ 		expires = 0;
+ 
+ 	/* construct the expire value */
+@@ -1224,7 +1224,7 @@ char* oidc_util_get_cookie(request_rec *
+ 				cookie++;
+ 
+ 			/* see if we've found the cookie that we're looking for */
+-			if ((strncmp(cookie, cookieName, strlen(cookieName)) == 0)
++			if ((_oidc_strncmp(cookie, cookieName, strlen(cookieName)) == 0)
+ 					&& (cookie[strlen(cookieName)] == OIDC_CHAR_EQUAL)) {
+ 
+ 				/* skip to the meat of the parameter (the value after the '=') */
+@@ -1405,7 +1405,7 @@ apr_byte_t oidc_util_request_matches_url
+ 	oidc_debug(r, "comparing \"%s\"==\"%s\"", r->parsed_uri.path, uri.path);
+ 	if ((r->parsed_uri.path == NULL) || (uri.path == NULL))
+ 		return (r->parsed_uri.path == uri.path);
+-	return (apr_strnatcmp(r->parsed_uri.path, uri.path) == 0);
++	return (_oidc_strcmp(r->parsed_uri.path, uri.path) == 0);
+ }
+ 
+ /*
+@@ -1439,7 +1439,7 @@ apr_byte_t oidc_util_get_request_paramet
+ 
+ 	p = apr_strtok(args, OIDC_STR_AMP, &tokenizer_ctx);
+ 	do {
+-		if (p && strncmp(p, k_param, k_param_sz) == 0) {
++		if (p && _oidc_strncmp(p, k_param, k_param_sz) == 0) {
+ 			*value = apr_pstrdup(r->pool, p + k_param_sz);
+ 			*value = oidc_util_unescape_string(r, *value);
+ 		}
+@@ -1781,7 +1781,7 @@ apr_byte_t oidc_util_read_post_params(re
+ 	arr = apr_table_elts(table);
+ 	elts = (const apr_table_entry_t*) arr->elts;
+ 	for (i = 0; i < arr->nelts; i++)
+-		if (apr_strnatcmp(elts[i].key, strip_param_name) != 0)
++		if (_oidc_strcmp(elts[i].key, strip_param_name) != 0)
+ 			oidc_userdata_set_post_param(r, elts[i].key, elts[i].val);
+ 
+ 	end:
+@@ -1924,7 +1924,7 @@ apr_byte_t oidc_util_file_write(request_
+ apr_byte_t oidc_util_issuer_match(const char *a, const char *b) {
+ 
+ 	/* check the "issuer" value against the one configure for the provider we got this id_token from */
+-	if (apr_strnatcmp(a, b) != 0) {
++	if (_oidc_strcmp(a, b) != 0) {
+ 
+ 		/* no strict match, but we are going to accept if the difference is only a trailing slash */
+ 		int n1 = strlen(a);
+@@ -1933,7 +1933,7 @@ apr_byte_t oidc_util_issuer_match(const
+ 				n2 :
+ 				(((n2 == n1 + 1) && (b[n2 - 1] == OIDC_CHAR_FORWARD_SLASH)) ?
+ 						n1 : 0);
+-		if ((n == 0) || (strncmp(a, b, n) != 0))
++		if ((n == 0) || (_oidc_strncmp(a, b, n) != 0))
+ 			return FALSE;
+ 	}
+ 
+@@ -1957,7 +1957,7 @@ apr_byte_t oidc_util_json_array_has_valu
+ 					elem->type);
+ 			continue;
+ 		}
+-		if (apr_strnatcmp(json_string_value(elem), needle) == 0) {
++		if (_oidc_strcmp(json_string_value(elem), needle) == 0) {
+ 			break;
+ 		}
+ 	}
+@@ -2089,7 +2089,7 @@ void oidc_util_set_app_infos(request_rec
+ 
+ 					/* concatenate the string to the s_concat value using the configured separator char */
+ 					// TODO: escape the delimiter in the values (maybe reuse/extract url-formatted code from oidc_session_identity_encode)
+-					if (apr_strnatcmp(s_concat, "") != 0) {
++					if (_oidc_strcmp(s_concat, "") != 0) {
+ 						s_concat = apr_psprintf(r->pool, "%s%s%s", s_concat,
+ 								claim_delimiter, json_string_value(elem));
+ 					} else {
+@@ -2099,7 +2099,7 @@ void oidc_util_set_app_infos(request_rec
+ 
+ 				} else if (json_is_boolean(elem)) {
+ 
+-					if (apr_strnatcmp(s_concat, "") != 0) {
++					if (_oidc_strcmp(s_concat, "") != 0) {
+ 						s_concat = apr_psprintf(r->pool, "%s%s%s", s_concat,
+ 								claim_delimiter,
+ 								json_is_true(elem) ? "1" : "0");
+@@ -2526,7 +2526,7 @@ int oidc_util_cookie_domain_valid(const
+ 	} else {
+ 		p = strstr(hostname, check_cookie);
+ 	}
+-	if ((p == NULL) || (apr_strnatcmp(check_cookie, p) != 0)) {
++	if ((p == NULL) || (_oidc_strcmp(check_cookie, p) != 0)) {
+ 		return FALSE;
+ 	}
+ 	return TRUE;
+@@ -2559,7 +2559,7 @@ static apr_byte_t oidc_util_hdr_in_conta
+ 		while (elem != NULL) {
+ 			while (*elem == OIDC_CHAR_SPACE)
+ 				elem++;
+-			if ((strncmp(elem, needle, strlen(needle)) == 0)
++			if ((_oidc_strncmp(elem, needle, strlen(needle)) == 0)
+ 					&& ((elem[strlen(needle)] == '\0')
+ 							|| (elem[strlen(needle)] == postfix_separator))) {
+ 				rc = TRUE;
+@@ -2795,7 +2795,7 @@ apr_byte_t oidc_util_json_validate_cnf_x
+ 		goto out_err;
+ 	}
+ 
+-	if (apr_strnatcmp(fingerprint, x5t_256_str) != 0) {
++	if (_oidc_strcmp(fingerprint, x5t_256_str) != 0) {
+ 		oidc_warn(r,
+ 				"fingerprint of provided cert (%s) does not match cnf[\"x5t#S256\"] (%s)",
+ 				fingerprint, x5t_256_str);
+diff -up mod_auth_openidc-2.4.9.4/test/test-cmd.c.orig mod_auth_openidc-2.4.9.4/test/test-cmd.c
+--- mod_auth_openidc-2.4.9.4/test/test-cmd.c.orig	2021-09-03 10:41:21.000000000 +0200
++++ mod_auth_openidc-2.4.9.4/test/test-cmd.c	2025-04-25 17:25:01.703883024 +0200
+@@ -499,7 +499,7 @@ int hash_base64url(int argc, char **argv
+ 				"hash_base64url <string> [algo] [base64url-decode-first]");
+ 
+ 	char *algo = argc > 3 ? argv[3] : "sha256";
+-	int base64url_decode_first = argc > 4 ? (strcmp(argv[4], "yes") == 0) : 0;
++	int base64url_decode_first = argc > 4 ? (_oidc_strcmp(argv[4], "yes") == 0) : 0;
+ 	char *output = NULL;
+ 
+ 	request_rec *r = request_setup(pool);
+diff -up mod_auth_openidc-2.4.9.4/test/test.c.orig mod_auth_openidc-2.4.9.4/test/test.c
+--- mod_auth_openidc-2.4.9.4/test/test.c.orig	2021-09-03 10:41:21.000000000 +0200
++++ mod_auth_openidc-2.4.9.4/test/test.c	2025-04-25 17:25:01.704020196 +0200
+@@ -87,14 +87,14 @@ static int TST_RC;
+ 		}
+ 
+ #define TST_ASSERT_STR(message, result, expected) \
+-		TST_RC = (result && expected) ? (apr_strnatcmp(result, expected) != 0) : ((result != NULL) || (expected != NULL)); \
++		TST_RC = (result && expected) ? (_oidc_strcmp(result, expected) != 0) : ((result != NULL) || (expected != NULL)); \
+ 		if (TST_RC) { \
+ 			sprintf(TST_ERR_MSG, TST_FORMAT("%s"), __FUNCTION__, message, result ? result : "(null)", expected ? expected : "(null)"); \
+ 			return TST_ERR_MSG; \
+ 		}
+ 
+ #define TST_ASSERT_STRN(message, result, expected, len) \
+-		TST_RC = (result && expected) ? (strncmp(result, expected, len) != 0) : ((result != NULL) || (expected != NULL)); \
++		TST_RC = (result && expected) ? (_oidc_strncmp(result, expected, len) != 0) : ((result != NULL) || (expected != NULL)); \
+ 		if (TST_RC) { \
+ 			sprintf(TST_ERR_MSG, TST_FORMAT("%s"), __FUNCTION__, message, result ? result : "(null)", expected ? expected : "(null)"); \
+ 			return TST_ERR_MSG; \
