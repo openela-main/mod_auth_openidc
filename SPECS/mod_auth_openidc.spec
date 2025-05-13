@@ -15,7 +15,7 @@
 
 Name:		mod_auth_openidc
 Version:	2.4.10
-Release:	1%{?dist}
+Release:	1%{?dist}.1
 Summary:	OpenID Connect auth module for Apache HTTP Server
 
 License:	ASL 2.0
@@ -26,6 +26,7 @@ Patch1:		0001-CVE-2022-23527.patch
 Patch2:		0002-CVE-2023-28625.patch
 Patch3:		0003-CVE-2024-24814.patch
 Patch4:		0004-race-condition.patch
+Patch5:		0005-CVE-2024-24814.patch
 
 BuildRequires:  gcc
 BuildRequires:	httpd-devel
@@ -99,6 +100,10 @@ install -m 700 -d $RPM_BUILD_ROOT%{httpd_pkg_cache_dir}/cache
 %dir %attr(0700, apache, apache) %{httpd_pkg_cache_dir}/cache
 
 %changelog
+* Fri Apr 11 2025 Tomas Halman <thalman@redhat.com> - 2.4.10-1%{?dist}.1
+  Resolves: RHEL-86224 - mod_auth_openidc allows OIDCProviderAuthRequestMethod
+            POSTs to leak protected data (CVE-2025-31492)
+
 * Fri Apr 12 2024 Tomas Halman <thalman@redhat.com> - 2.4.10-1
   Rebase to 2.4.10 version improves `state cookies piling up` problem
   Resolves: RHEL-32450 Race condition in mod_auth_openidc filecache
