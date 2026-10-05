@@ -15,12 +15,15 @@
 
 Name:		mod_auth_openidc
 Version:	2.4.16.11
-Release:	1%{?dist}
+Release:	1%{?dist}.1
 Summary:	OpenID Connect auth module for Apache HTTP Server
 
 License:	Apache-2.0
 URL:		https://github.com/OpenIDC/mod_auth_openidc
 Source0:	https://github.com/OpenIDC/mod_auth_openidc/releases/download/v%{version}/mod_auth_openidc-%{version}.tar.gz
+
+# https://github.com/OpenIDC/mod_auth_openidc/commit/8017478471cc071c49aa073c5c9be652a73a8630
+Patch0:	mod_auth_openidc-2.4.16.11-CVE-2026-54789.patch
 
 BuildRequires: make
 BuildRequires:  gcc
@@ -42,6 +45,7 @@ an OpenID Connect Relying Party and/or OAuth 2.0 Resource Server.
 
 %prep
 %setup -q
+%patch0 -p1
 
 %build
 # workaround rpm-buildroot-usage
@@ -96,6 +100,11 @@ install -m 700 -d $RPM_BUILD_ROOT%{httpd_pkg_cache_dir}/cache
 %dir %attr(0700, apache, apache) %{httpd_pkg_cache_dir}/cache
 
 %changelog
+* Wed Aug 26 2026 RHEL Packaging Agent <redhat-ymir-agent@redhat.com> - 2.4.16.11-1.1
+- Fix CVE-2026-54789: out-of-bounds read/write in state cookie
+  parsing
+- Resolves: RHEL-248045
+
 * Tue Apr 8 2025 Tomas Halman <thalman@redhat.com> - 2.4.16.11-1
   Rebase to version 2.4.16.11
 - Resolves: RHEL-86213
