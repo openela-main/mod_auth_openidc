@@ -15,7 +15,7 @@
 
 Name:		mod_auth_openidc
 Version:	2.4.9.4
-Release:	8%{?dist}
+Release:	9%{?dist}
 Summary:	OpenID Connect auth module for Apache HTTP Server
 
 License:	ASL 2.0
@@ -27,6 +27,7 @@ Patch3:		0003-CVE-2024-24814.patch
 Patch4:		0004-race-condition.patch
 Patch5:		0005-CVE-2025-31492.patch
 Patch6:		0006-string-compare.patch
+Patch7:		0007-CVE-2026-54789.patch
 
 BuildRequires:  gcc
 BuildRequires:	httpd-devel
@@ -102,6 +103,10 @@ install -m 700 -d $RPM_BUILD_ROOT%{httpd_pkg_cache_dir}/cache
 %dir %attr(0700, apache, apache) %{httpd_pkg_cache_dir}/cache
 
 %changelog
+* Fri Sep 11 2026 Tomas Halman <thalman@redhat.com> - 2.4.9.4-9
+- Resolves: RHEL-248080 CVE-2026-54789 Denial of Service via malformed state
+            cookie parsing
+
 * Fri Apr 25 2025 Tomas Halman <thalman@redhat.com> - 2.4.9.4-8
 - Resolves: RHEL-87759 - Empty POST causes crash with OIDCPreservePost
 
